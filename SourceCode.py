@@ -1,4 +1,4 @@
-import requests, ast, os, zipfile, subprocess, threading, psutil
+import requests, ast, os, zipfile, subprocess, threading, psutil, sys
 from clint.textui import progress
 
 os.system("echo off")
@@ -33,7 +33,7 @@ def completed():
         if file.endswith(".exe"):
             start_game(os.path.join(f"Downloads\\CyclicWarriors\\{game_folder_name}", file))
             break
-    exit()
+    sys.exit()
 
 def download_game(game_url, map_url, version):
     print("Downloading full game!")

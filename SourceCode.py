@@ -1,6 +1,7 @@
 import requests, ast, os, zipfile, subprocess, threading, psutil
 from clint.textui import progress
-from tokenize import String
+
+os.system("echo off")
 
 def eval_message(message):
     if message:
@@ -30,7 +31,7 @@ def completed():
     
     for file in os.listdir(f"Downloads/CyclicWarriors/{game_folder_name}"):
         if file.endswith(".exe"):
-            start_game(os.path.join(f"Downloads\CyclicWarriors\{game_folder_name}", file))
+            start_game(os.path.join(f"Downloads\\CyclicWarriors\\{game_folder_name}", file))
             break
     exit()
 
@@ -38,14 +39,14 @@ def download_game(game_url, map_url, version):
     print("Downloading full game!")
     print("The game is downloaded in two parts, the download bar will be repeated.")
     
-    os.system('echo off\nrmdir /Q/S Downloads\CyclicWarriors')
-    os.system('md Downloads\CyclicWarriors')
+    #os.system('rmdir /Q/S Downloads\\CyclicWarriors')
+    os.system('md Downloads\\CyclicWarriors')
     
-    os.system('echo off\nrmdir /Q/S Downloads\GameData')
-    os.system('md Downloads\GameData')
+    os.system('nrmdir /Q/S Downloads\\GameData')
+    os.system('md Downloads\\GameData')
     
-    os.system('echo off\nrmdir /Q/S Downloads\MapData')
-    os.system('md Downloads\MapData\Extracted')
+    os.system('rmdir /Q/S Downloads\\MapData')
+    os.system('md Downloads\\MapData\\Extracted')
     
     game_zip_path = 'Downloads/GameData/CyclicWarriors.zip'
     map_zip_path = 'Downloads/MapData/CyclicWarriors.zip'
@@ -76,24 +77,24 @@ def download_game(game_url, map_url, version):
     game_folder_name = os.listdir("Downloads/CyclicWarriors")[0]
     folder_name = os.listdir("Downloads/MapData/Extracted")[0]
     
-    os.system(f"Xcopy Downloads\MapData\Extracted\{folder_name} Downloads\CyclicWarriors\{game_folder_name}\TripleHorizen\Content\Paks /E /H /C /I /Y")
+    os.system(f"Xcopy Downloads\\MapData\\Extracted\\{folder_name} Downloads\\CyclicWarriors\\{game_folder_name}\\TripleHorizen\\Content\\Paks /E /H /C /I /Y")
     
     with open('Data/version.properties', 'w') as f:
         f.write(version)
     
-    os.system('echo off\nrmdir /Q/S Downloads\GameData')
-    os.system('md Downloads\GameData')
+    os.system('rmdir /Q/S Downloads\\GameData')
+    os.system('md Downloads\\GameData')
     
-    os.system('echo off\nrmdir /Q/S Downloads\MapData')
-    os.system('md Downloads\MapData\Extracted')
+    os.system('rmdir /Q/S Downloads\\MapData')
+    os.system('md Downloads\\MapData\\Extracted')
     
     completed()
 
 def download_local():
     print("Downloading local file game!")
     
-    os.system('echo off\nrmdir /Q/S Downloads\CyclicWarriors')
-    os.system('md Downloads\CyclicWarriors\CyclicWarriorsCU')
+    #os.system('rmdir /Q/S Downloads\\CyclicWarriors')
+    os.system('md Downloads\\CyclicWarriors\\CyclicWarriorsCU')
     
     game_folder_name = "CyclicWarriorsCU"
     
@@ -101,8 +102,8 @@ def download_local():
     
     game_version = input("Enter the version of the game you are installing. It should be a number like 36\nVersion Number: ")
     
-    print(f'Xcopy "{exe_folder_location}" Downloads\CyclicWarriors\{game_folder_name} /E /H /C /I /Y')
-    os.system(f'Xcopy "{exe_folder_location}" Downloads\CyclicWarriors\{game_folder_name} /E /H /C /I /Y')
+    #print(f'Xcopy "{exe_folder_location}" Downloads\\CyclicWarriors\\{game_folder_name} /E /H /C /I /Y')
+    os.system(f'Xcopy "{exe_folder_location}" Downloads\\CyclicWarriors\\{game_folder_name} /E /H /C /I /Y')
     
     print("Done transfering!")
         
@@ -114,8 +115,8 @@ def download_local():
 def download_patch(url, version):
     print("Downloading patch for the game!")
     
-    os.system('echo off\nrmdir /Q/S Downloads\Patch')
-    os.system('md Downloads\Patch\Extracted')
+    os.system('rmdir /Q/S Downloads\\Patch')
+    os.system('md Downloads\\Patch\\Extracted')
     
     patch_zip_path = 'Downloads/Patch/CyclicWarriors.zip'
     
@@ -133,10 +134,10 @@ def download_patch(url, version):
     game_folder_name = os.listdir("Downloads/CyclicWarriors")[0]
     folder_name = os.listdir("Downloads/Patch/Extracted")[0]
     
-    os.system(f"Xcopy Downloads\Patch\Extracted\{folder_name} Downloads\CyclicWarriors\{game_folder_name}\TripleHorizen\Content\Paks /E /H /C /I /Y")
+    os.system(f"Xcopy Downloads\\Patch\\Extracted\\{folder_name} Downloads\\CyclicWarriors\\{game_folder_name}\\TripleHorizen\\Content\\Paks /E /H /C /I /Y")
     
-    os.system('echo off\nrmdir /Q/S Downloads\CyclicWarriors')
-    os.system('md Downloads\Patch\Extracted')
+    #os.system('rmdir /Q/S Downloads\\CyclicWarriors')
+    os.system('md Downloads\\Patch\\Extracted')
     
     with open('Data/version.properties', 'w') as f:
         f.write(version)
@@ -186,6 +187,7 @@ if installed_version:
     else:
         for patch in all_patches_avalable:
             if patch == installed_version:
+                print(patches[patch], latest_version)
                 download_patch(patches[patch], latest_version)
         
         download_game(latest_version_url, latest_version_map_url, latest_version)

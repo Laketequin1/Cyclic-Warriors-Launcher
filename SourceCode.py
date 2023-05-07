@@ -14,7 +14,7 @@ def fix_json(message):
     return message[2:len(message) - 1]
 
 def start_game(exe):
-    subprocess.call(exe)
+    subprocess.Popen(exe)
 
 def completed():
     input("Completed! Remember to start steam. Press enter to launch game...")
@@ -42,7 +42,7 @@ def download_game(game_url, map_url, version):
     #os.system('rmdir /Q/S Downloads\\CyclicWarriors')
     os.system('md Downloads\\CyclicWarriors')
     
-    os.system('nrmdir /Q/S Downloads\\GameData')
+    os.system('rmdir /Q/S Downloads\\GameData')
     os.system('md Downloads\\GameData')
     
     os.system('rmdir /Q/S Downloads\\MapData')

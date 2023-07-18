@@ -1,159 +1,223 @@
-import requests, ast, os, zipfile, subprocess, threading, psutil, sys
+import requests
+import ast
+import os
+import zipfile
+import subprocess
+import psutil
+import sys
+from git import Repo
 from clint.textui import progress
 
 os.system("echo off")
 
-def eval_message(message):
+
+def evaluate_message(message):
+    """
+    Evaluates the given message as a Python literal and returns the result.
+
+    Args:
+        message (str): The message to evaluate.
+
+    Returns:
+        object: The evaluated result or None if the message is empty.
+    """
     if message:
         return ast.literal_eval(message)
     return None
 
+
 def fix_json(message):
+    """
+    Fixes the JSON format of the given message by removing unwanted characters.
+
+    Args:
+        message (str): The message to fix.
+
+    Returns:
+        str: The fixed JSON message.
+    """
     message = message.replace("\\n", "").replace("\\r", "").replace(" ", "")
-    
     return message[2:len(message) - 1]
 
-def start_game(exe):
-    subprocess.Popen(exe)
+
+def start_game(executable_path):
+    """
+    Starts the game by executing the given executable.
+
+    Args:
+        executable_path (str): The path to the game executable.
+    """
+    subprocess.Popen(executable_path)
+
 
 def completed():
-    input("Completed! Remember to start steam. Press enter to launch game...")
-    
-    s = (p.name() for p in psutil.process_iter())
-    
-    if not "steam.exe" in s:
+    """
+    Handles the completion of the download and game launch process.
+    """
+    input("Completed! Remember to start steam. Press enter to launch the game...")
+
+    process_names = [p.name() for p in psutil.process_iter()]
+
+    if "steam.exe" not in process_names:
         print("Steam not launched.")
         completed()
-    
-    print("Launching game!")
-    
-    game_folder_name = os.listdir("Downloads/CyclicWarriors")[0]
-    
-    for file in os.listdir(f"Downloads/CyclicWarriors/{game_folder_name}"):
+
+    print("Launching the game!")
+
+    game_folder_path = os.listdir("Downloads/CyclicWarriors")[0]
+
+    for file in os.listdir(f"Downloads/CyclicWarriors/{game_folder_path}"):
         if file.endswith(".exe"):
-            start_game(os.path.join(f"Downloads\\CyclicWarriors\\{game_folder_name}", file))
+            start_game(os.path.join(f"Downloads\\CyclicWarriors\\{game_folder_path}", file))
             break
+
     sys.exit()
 
+
+def update_launcher():
+    # Clone or open the repository
+    repo_path = 'CyclicWarriorsLauncherGit'
+    if os.path.exists(repo_path):
+        repo = Repo(repo_path)
+        repo.remotes.origin.pull()
+    else:
+        repo = Repo.clone_from('https://github.com/Laketequin1/Cyclic-Warriors-Launcher.git', repo_path)
+
+    # Get the latest commit
+    latest_commit = repo.head.commit
+
+    # Update the 'SourceCode.py' and 'Cyclic Warriors Launcher.exe' files
+    sourcecode_file = 'SourceCode.py'
+    launcher_file = 'Cyclic Warriors Launcher.exe'
+
+    sourcecode_blob = latest_commit.tree / 'SourceCode.py'
+    launcher_blob = latest_commit.tree / 'Cyclic Warriors Launcher.exe'
+
+    sourcecode_blob.stream_data(open(sourcecode_file, 'wb'))
+    launcher_blob.stream_data(open(launcher_file, 'wb'))
+
+    os.system('rmdir /Q/S CyclicWarriorsLauncherGit')
+
+    print('Launcher successfully updated!')
+
+
 def download_game(game_url, map_url, version):
-    print("Downloading full game!")
+    """
+    Downloads the full game and extracts it.
+
+    Args:
+        game_url (str): The URL to download the game.
+        map_url (str): The URL to download the map data.
+        version (str): The version of the game to download.
+    """
+    print("Downloading the full game!")
     print("The game is downloaded in two parts, the download bar will be repeated.")
-    
-    #os.system('rmdir /Q/S Downloads\\CyclicWarriors')
+
     os.system('md Downloads\\CyclicWarriors')
-    
     os.system('rmdir /Q/S Downloads\\GameData')
     os.system('md Downloads\\GameData')
-    
     os.system('rmdir /Q/S Downloads\\MapData')
     os.system('md Downloads\\MapData\\Extracted')
-    
+
     game_zip_path = 'Downloads/GameData/CyclicWarriors.zip'
     map_zip_path = 'Downloads/MapData/CyclicWarriors.zip'
     folder_path = 'Downloads/CyclicWarriors'
-    
+
     r = requests.get(game_url, stream=True)
     with open(game_zip_path, 'wb') as f:
         total_length = int(r.headers.get('content-length'))
-        for chunk in progress.bar(r.iter_content(chunk_size=1024), expected_size=(total_length/1024) + 1): 
+        for chunk in progress.bar(r.iter_content(chunk_size=1024), expected_size=(total_length / 1024) + 1):
             if chunk:
                 f.write(chunk)
                 f.flush()
 
     with zipfile.ZipFile(game_zip_path, 'r') as zip_ref:
         zip_ref.extractall(folder_path)
-    
+
     r = requests.get(map_url, stream=True)
     with open(map_zip_path, 'wb') as f:
         total_length = int(r.headers.get('content-length'))
-        for chunk in progress.bar(r.iter_content(chunk_size=1024), expected_size=(total_length/1024) + 1): 
+        for chunk in progress.bar(r.iter_content(chunk_size=1024), expected_size=(total_length / 1024) + 1):
             if chunk:
                 f.write(chunk)
                 f.flush()
-    
+
     with zipfile.ZipFile(map_zip_path, 'r') as zip_ref:
         zip_ref.extractall("Downloads/MapData/Extracted")
-    
+
     game_folder_name = os.listdir("Downloads/CyclicWarriors")[0]
     folder_name = os.listdir("Downloads/MapData/Extracted")[0]
-    
+
     os.system(f"Xcopy Downloads\\MapData\\Extracted\\{folder_name} Downloads\\CyclicWarriors\\{game_folder_name}\\TripleHorizen\\Content\\Paks /E /H /C /I /Y")
-    
-    with open('Data/version.properties', 'w') as f:
+
+    with open('Data/GameVersion.properties', 'w') as f:
         f.write(version)
-    
+
     os.system('rmdir /Q/S Downloads\\GameData')
     os.system('md Downloads\\GameData')
-    
     os.system('rmdir /Q/S Downloads\\MapData')
-    os.system('md Downloads\\MapData\\Extracted')
-    
+
     completed()
 
-def download_local():
-    print("Downloading local file game!")
-    
-    #os.system('rmdir /Q/S Downloads\\CyclicWarriors')
-    os.system('md Downloads\\CyclicWarriors\\CyclicWarriorsCU')
-    
-    game_folder_name = "CyclicWarriorsCU"
-    
-    exe_folder_location = input("Enter the full location of the folder containing the .exe for the game.\nIt should look something like C:\\Users\\user01\\GamesFolder\\CyclicWarriors\\CyclicWarriors33\nDirectory: ")
-    
-    game_version = input("Enter the version of the game you are installing. It should be a number like 36\nVersion Number: ")
-    
-    #print(f'Xcopy "{exe_folder_location}" Downloads\\CyclicWarriors\\{game_folder_name} /E /H /C /I /Y')
-    os.system(f'Xcopy "{exe_folder_location}" Downloads\\CyclicWarriors\\{game_folder_name} /E /H /C /I /Y')
-    
-    print("Done transfering!")
-        
-    with open('Data/version.properties', 'w') as f:
-        f.write(game_version)
-    
-    completed()
 
 def download_patch(url, version):
-    print("Downloading patch for the game!")
-    
+    """
+    Downloads a game patch and applies it.
+
+    Args:
+        url (str): The URL to download the patch.
+        version (str): The version of the patch to download.
+    """
+    print("Downloading a patch for the game!")
+
     os.system('rmdir /Q/S Downloads\\Patch')
     os.system('md Downloads\\Patch\\Extracted')
-    
+
     patch_zip_path = 'Downloads/Patch/CyclicWarriors.zip'
-    
+
     r = requests.get(url, stream=True)
     with open(patch_zip_path, 'wb') as f:
         total_length = int(r.headers.get('content-length'))
-        for chunk in progress.bar(r.iter_content(chunk_size=1024), expected_size=(total_length/1024) + 1): 
+        for chunk in progress.bar(r.iter_content(chunk_size=1024), expected_size=(total_length / 1024) + 1):
             if chunk:
                 f.write(chunk)
                 f.flush()
-    
+
     with zipfile.ZipFile(patch_zip_path, 'r') as zip_ref:
         zip_ref.extractall("Downloads/Patch/Extracted")
-    
+
     game_folder_name = os.listdir("Downloads/CyclicWarriors")[0]
     folder_name = os.listdir("Downloads/Patch/Extracted")[0]
-    
+
     os.system(f"Xcopy Downloads\\Patch\\Extracted\\{folder_name} Downloads\\CyclicWarriors\\{game_folder_name}\\TripleHorizen\\Content\\Paks /E /H /C /I /Y")
-    
-    #os.system('rmdir /Q/S Downloads\\CyclicWarriors')
+
     os.system('md Downloads\\Patch\\Extracted')
-    
-    with open('Data/version.properties', 'w') as f:
+
+    with open('Data/GameVersion.properties', 'w') as f:
         f.write(version)
-    
+
     completed()
 
-def yes_no(comment):
+
+def get_yes_no_input(comment):
+    """
+    Prompt the user with a yes/no question and return their response.
+
+    Args:
+        comment (str): The prompt to display.
+
+    Returns:
+        bool: True if the user answered yes, False if they answered no.
+    """
     while True:
         answer = input(comment)
 
-        if type(answer) != str:
+        if not isinstance(answer, str):
             print("Not a y/n")
             continue
-        
+
         answer = answer.lower()
-        
+
         if answer == "y":
             return True
         elif answer == "n":
@@ -162,34 +226,44 @@ def yes_no(comment):
             print("Not a y/n")
             continue
 
-url = 'http://reallylinux.nz/RaisSoftware/cw/versiondata.json'
-r = requests.get(url)
 
-versions = eval_message(fix_json(str(r.content)))
+def main():
+    #url = 'http://reallylinux.nz/RaisSoftware/cw/versiondata.json'
+    url = 'https://projectspace.nz/wrkvaxxi/example.json'
+    response = requests.get(url)
+    data = evaluate_message(fix_json(str(response.content)))
 
-latest_version = list(versions["Game"].keys())[0]
-latest_version_url = list(versions["Game"].values())[0]
+    latest_game_version = list(data["Game"].keys())[0]
+    print(latest_game_version)
+    latest_game_url = list(data["Game"].values())[0]
+    latest_map_url = list(data["Mapdata"].values())[0]
+    all_patches_available = list(data["Patch"].keys())
+    patches = data["Patch"]
 
-latest_version_map_url = list(versions["Mapdata"].values())[0]
+    latest_launcher_version = data["Launcher"]
 
-all_patches_avalable = list(versions["Patch"].keys())
-patches = versions["Patch"]
+    with open("Data/GameVersion.properties", "r") as f:
+        installed_game_version = f.read()
 
-with open("Data/version.properties", "r") as f:
-    installed_version = f.read()
+    with open("Data/LauncherVersion.properties", "r") as f:
+        installed_launcher_version = f.read()
 
-if yes_no("Do you want to install a local game file? y/n: "):
-    download_local()
+    if installed_launcher_version < latest_launcher_version:
+        update_launcher()
 
-if installed_version:
-    if installed_version == latest_version:
-        completed()
+    if installed_game_version:
+        if installed_game_version == latest_game_version:
+            completed()
+        else:
+            for patch in all_patches_available:
+                if patch == installed_game_version:
+                    print(patches[patch], latest_game_version)
+                    download_patch(patches[patch], latest_game_version)
+
+            download_game(latest_game_url, latest_map_url, latest_game_version)
     else:
-        for patch in all_patches_avalable:
-            if patch == installed_version:
-                print(patches[patch], latest_version)
-                download_patch(patches[patch], latest_version)
-        
-        download_game(latest_version_url, latest_version_map_url, latest_version)
-else:
-    download_game(latest_version_url, latest_version_map_url, latest_version)
+        download_game(latest_game_url, latest_map_url, latest_game_version)
+
+
+if __name__ == "__main__":
+    main()

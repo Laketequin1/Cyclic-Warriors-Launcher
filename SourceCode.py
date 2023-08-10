@@ -39,7 +39,7 @@ def is_git_installed():
     try:
         subprocess.run(["git", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
         return True
-    except subprocess.CalledProcessError:
+    except Exception as e:
         return False
 
 def install_git():

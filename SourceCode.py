@@ -3,15 +3,86 @@ import os
 import subprocess
 import sys
 import zipfile
-
-import psutil
-import requests
-from clint.textui import progress
-from git import Repo
+import time
 
 os.system("echo off")
 os.system("cls")
 
+def get_yes_no_input(comment):
+    """
+    Prompt the user with a yes/no question and return their response.
+
+    Args:
+        comment (str): The prompt to display.
+
+    Returns:
+        bool: True if the user answered yes, False if they answered no.
+    """
+    while True:
+        answer = input(comment)
+
+        if not isinstance(answer, str):
+            print("Not a y/n")
+            continue
+
+        answer = answer.lower()
+
+        if answer == "y":
+            return True
+        elif answer == "n":
+            return False
+        else:
+            print("Not a y/n")
+            continue
+
+def is_git_installed():
+    try:
+        subprocess.run(["git", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+        return True
+    except subprocess.CalledProcessError:
+        return False
+
+def install_git():
+    if not is_git_installed():
+        if not get_yes_no_input("Git can not be found on your computer and the launcher can not auto-update. The launcher will still continue without installing Git.\nDo you wish to install git? y/n: "):
+            print("Continuing without Git :,(")
+            return
+        print("Downloading git...")
+        time.sleep(1)
+        git_installer_url = "https://github.com/git-for-windows/git/releases/download/v2.41.0.windows.3/Git-2.41.0.3-64-bit.exe"
+        try:
+            # Download Git installer
+            download_command = f"Invoke-WebRequest -Uri '{git_installer_url}' -OutFile 'GitInstaller.exe'"
+            subprocess.run(["powershell", "-Command", download_command], shell=True, check=True)
+
+            # Install Git silently
+            install_command = "Start-Process -Wait -FilePath 'GitInstaller.exe' -ArgumentList '/SILENT /COMPONENTS=\"icons,ext\"'"
+            subprocess.run(["powershell", "-Command", install_command], shell=True, check=True)
+
+            # Clean up the installer
+            cleanup_command = "Remove-Item 'GitInstaller.exe'"
+            subprocess.run(["powershell", "-Command", cleanup_command], shell=True, check=True)
+
+            if is_git_installed():
+                print("Git installation completed successfully.")
+            else:
+                print("Git not installed, something went wrong. Make sure Git is in your path.")
+                input("Press enter to exit...")
+                sys.exit()
+
+        except subprocess.CalledProcessError as e:
+            print("Error during Git installation:", e)
+            input("Press enter to exit...")
+            sys.exit()
+
+install_git()
+
+import psutil
+import requests
+from clint.textui import progress
+
+if is_git_installed():
+    from git import Repo
 
 def evaluate_message(message):
     """
@@ -296,34 +367,6 @@ def download_patch(url, version, binaries_needed):
     completed()
 
 
-def get_yes_no_input(comment):
-    """
-    Prompt the user with a yes/no question and return their response.
-
-    Args:
-        comment (str): The prompt to display.
-
-    Returns:
-        bool: True if the user answered yes, False if they answered no.
-    """
-    while True:
-        answer = input(comment)
-
-        if not isinstance(answer, str):
-            print("Not a y/n")
-            continue
-
-        answer = answer.lower()
-
-        if answer == "y":
-            return True
-        elif answer == "n":
-            return False
-        else:
-            print("Not a y/n")
-            continue
-
-
 def main():
     url = 'http://reallylinux.nz/RaisSoftware/cw/versiondata.json'
 
@@ -349,7 +392,7 @@ def main():
     with open("Data/LauncherVersion.properties", "r") as f:
         installed_launcher_version = int(f.read())
 
-    if installed_launcher_version < latest_launcher_version:
+    if installed_launcher_version < latest_launcher_version and is_git_installed():
         update_launcher(latest_launcher_version)
 
     binaries_required = int(installed_game_version) < latest_binaries_version

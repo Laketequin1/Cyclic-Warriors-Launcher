@@ -222,10 +222,19 @@ def completed():
     sys.exit()
 
 
-def update_launcher(version):
+def copydata(filename):
+    with open(f"CyclicWarriorsLauncherGit\\{filename}", 'rb') as f:
+        new_data = f.read()
+
+    with open(filename, 'wb') as f:
+        f.truncate(0)
+        f.write(new_data)
+
+
+def update_launcher():
     print("Updating Launcher... please wait, this may take a couple minutes.")
 
-    os.system('rmdir /Q/S CyclicWarriorsLauncherGit')
+    os.system('echo off\nrmdir /Q/S CyclicWarriorsLauncherGit 2>nul')
 
     # Clone or open the repository
     repo_path = 'CyclicWarriorsLauncherGit'
@@ -235,30 +244,12 @@ def update_launcher(version):
     else:
         repo = Repo.clone_from('https://github.com/Laketequin1/Cyclic-Warriors-Launcher.git', repo_path)
 
-    # Get the latest commit
-    latest_commit = repo.head.commit
+    try:
+        copydata("update_launcher.exe")
+    except Exception as e:
+        print(f"Warning (You can ignore this): {e}")
 
-    # Update the 'SourceCode.py' and 'Cyclic Warriors Launcher.exe' files
-    sourcecode_file = 'SourceCode.py'
-    launcher_file = 'Cyclic Warriors Launcher.exe'
-
-    sourcecode_blob = latest_commit.tree / 'SourceCode.py'
-    launcher_blob = latest_commit.tree / 'Cyclic Warriors Launcher.exe'
-
-    with open(sourcecode_file, 'wb') as sourcecode_stream:
-        sourcecode_blob.stream_data(sourcecode_stream)
-
-    with open(launcher_file, 'wb') as launcher_stream:
-        launcher_blob.stream_data(launcher_stream)
-
-    os.system('rmdir /Q/S CyclicWarriorsLauncherGit 2> {}'.format(os.devnull))
-
-    with open('Data/LauncherVersion.properties', 'w') as f:
-        f.write(str(version))
-
-    input('Launcher successfully updated! Press enter to relaunch...')
-
-    subprocess.Popen("Cyclic Warriors Launcher.exe")
+    subprocess.Popen("update_launcher.exe")
     sys.exit()
 
 
@@ -383,17 +374,17 @@ def main():
     latest_launcher_version = int(data["Launcher"])
     latest_binaries_version = int(data["Binaries"])
 
+    with open("Data/LauncherVersion.properties", "r") as f:
+        installed_launcher_version = int(f.read())
+
+    if installed_launcher_version < latest_launcher_version and is_git_installed():
+        update_launcher()
+
     with open("Data/GameVersion.properties", "r") as f:
         installed_game_version = f.read()
 
     if installed_game_version == "":
         installed_game_version = str(manually_set_GameVersion(int(latest_game_version)))
-
-    with open("Data/LauncherVersion.properties", "r") as f:
-        installed_launcher_version = int(f.read())
-
-    if installed_launcher_version < latest_launcher_version and is_git_installed():
-        update_launcher(latest_launcher_version)
 
     binaries_required = int(installed_game_version) < latest_binaries_version
 

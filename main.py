@@ -5,12 +5,83 @@ from PyQt5.QtCore import Qt, QPropertyAnimation
 
 ORIGINAL_HEIGHT = 540
 
+def pause():
+    download_button.canceled = True
+
 def download():
+    download_button.setStyleSheet(
+        f"""
+            :!hover {{
+                border: 1px solid black;
+                font-size: {round(24 * size_multiplier)}px;
+                font-weight: bold;
+                color: white;
+                background-color: #5076e6;
+                border-radius: 5px;
+            }}
+
+            :hover {{
+                border: 1px solid black;
+                font-size: {round(24 * size_multiplier)}px;
+                font-weight: bold;
+                color: white;
+                background-color: #5c81ed;
+                border-radius: 5px;
+            }}
+        """
+    )
+    download_button.clicked.disconnect(download)
+    download_button.clicked.connect(pause)
+    download_button.setText("Pause")
+
     import time
     for i in range(101):
+        if download_button.canceled:
+            break
         progress_bar.setValue(i)
         app.processEvents()
         time.sleep(0.05)
+    else:
+        download_button.setStyleSheet(
+            f"""
+                border: 1px solid black;
+                font-size: {round(24 * size_multiplier)}px;
+                font-weight: bold;
+                color: white;
+                background-color: #3bc449;
+                border-radius: 5px;
+            """
+        )
+        download_button.clicked.disconnect(pause)
+        download_button.setText("FINISHED!")
+        download_button.setCursor(QCursor(Qt.ArrowCursor))
+        return
+    
+    download_button.setStyleSheet(
+        f"""
+            :!hover {{
+                border: 1px solid black;
+                font-size: {round(24 * size_multiplier)}px;
+                font-weight: bold;
+                color: white;
+                background-color: #1948d1;
+                border-radius: 5px;
+            }}
+
+            :hover {{
+                border: 1px solid black;
+                font-size: {round(24 * size_multiplier)}px;
+                font-weight: bold;
+                color: white;
+                background-color: #2c59de;
+                border-radius: 5px;
+            }}
+        """
+    )
+    download_button.clicked.disconnect(pause)
+    download_button.clicked.connect(download)
+    download_button.canceled = False
+    download_button.setText("Resume")
 
 app = QApplication(sys.argv)
 window = QMainWindow()
@@ -52,6 +123,7 @@ title_label.setGraphicsEffect(shadow)
 download_button = QPushButton("Download", window)
 download_button.setGeometry(round(window_width / 2 - round(200 * size_multiplier) / 2), int(window_height * 0.4), round(200 * size_multiplier), round(50 * size_multiplier))
 download_button.clicked.connect(download)
+download_button.canceled = False
 download_button.setStyleSheet(
     f"""
         :!hover {{

@@ -31,15 +31,14 @@ class Downloader:
         data = cls.evaluate_message(cls.fix_json(str(response.content)))
         saved_data = cls.get_saved_data()
 
-        if saved_data["LauncherVersion"] < data["Launcher"]:
+        if saved_data["LauncherVersion"] < data["Launcher"] and False:
             cls.update_launcher()
-        
-        if saved_data["GameVersion"] == 0:
+        elif saved_data["GameVersion"] == 0:
             cls.download_game_setup()
         elif saved_data["GameVersion"] < max(data["PatchChanges"].keys()):
             cls.update_game()
-
-        cls.start()
+        else:
+            cls.start()
 
     @staticmethod
     def get_saved_data():
@@ -71,17 +70,17 @@ class Downloader:
         GUI.setup_download_ui()
 
     @classmethod
-    def download_game(cls):
-        print("DOWNLOAD GAME!!")
-
-    @classmethod
     def update_game(cls):
         print("UPDATE GAME!!")
-        cls.download_button.setStyleSheet(
+
+    @classmethod
+    def download_game(cls):
+        print("DOWNLOAD GAME!!")
+        GUI.download_button.setStyleSheet(
             f"""
             :!hover {{
                 border: 1px solid black;
-                font-size: {round(24 * cls.size_multiplier)}px;
+                font-size: {round(24 * GUI.size_multiplier)}px;
                 font-weight: bold;
                 color: white;
                 background-color: #3e64d6;
@@ -90,7 +89,7 @@ class Downloader:
 
             :hover {{
                 border: 1px solid black;
-                font-size: {round(24 * cls.size_multiplier)}px;
+                font-size: {round(24 * GUI.size_multiplier)}px;
                 font-weight: bold;
                 color: white;
                 background-color: #5377e0;
@@ -98,41 +97,40 @@ class Downloader:
             }}
             """
         )
-        cls.download_button.clicked.disconnect(cls.download_game)
-        cls.download_button.clicked.connect(cls.pause)
-        cls.download_button.setText("Pause")
+        GUI.download_button.clicked.disconnect(cls.download_game)
+        GUI.download_button.clicked.connect(cls.pause)
+        GUI.download_button.setText("Pause")
 
-        import time
         for i in range(1001):
-            if cls.download_button.canceled:
+            if GUI.download_button.canceled:
                 break
-            cls.progress_bar.setValue(round(i / 10))
-            cls.app.processEvents()
+            GUI.progress_bar.setValue(round(i / 10))
+            GUI.app.processEvents()
             time.sleep(0.01)
         else:
-            cls.download_button.setStyleSheet(
+            GUI.download_button.setStyleSheet(
                 f"""
                 border: 1px solid black;
-                font-size: {round(24 * cls.size_multiplier)}px;
+                font-size: {round(24 * GUI.size_multiplier)}px;
                 font-weight: bold;
                 color: white;
                 background-color: #2ad452;
                 border-radius: 5px;
                 """
             )
-            cls.download_button.clicked.disconnect(cls.pause)
-            cls.download_button.setText("FINISHED!")
-            cls.download_button.setCursor(QCursor(Qt.ArrowCursor))
-            cls.app.processEvents()
+            GUI.download_button.clicked.disconnect(cls.pause)
+            GUI.download_button.setText("FINISHED!")
+            GUI.download_button.setCursor(QCursor(Qt.ArrowCursor))
+            GUI.app.processEvents()
             time.sleep(1)
-            cls.close_elements()
+            GUI.close_elements()
             return
 
-        cls.download_button.setStyleSheet(
+        GUI.download_button.setStyleSheet(
             f"""
             :!hover {{
                 border: 1px solid black;
-                font-size: {round(24 * cls.size_multiplier)}px;
+                font-size: {round(24 * GUI.size_multiplier)}px;
                 font-weight: bold;
                 color: white;
                 background-color: #1948d1;
@@ -141,7 +139,7 @@ class Downloader:
 
             :hover {{
                 border: 1px solid black;
-                font-size: {round(24 * cls.size_multiplier)}px;
+                font-size: {round(24 * GUI.size_multiplier)}px;
                 font-weight: bold;
                 color: white;
                 background-color: #2c59de;
@@ -149,10 +147,10 @@ class Downloader:
             }}
             """
         )
-        cls.download_button.clicked.disconnect(cls.pause)
-        cls.download_button.clicked.connect(cls.download)
-        cls.download_button.canceled = False
-        cls.download_button.setText("Resume")
+        GUI.download_button.clicked.disconnect(cls.pause)
+        GUI.download_button.clicked.connect(cls.update_game)
+        GUI.download_button.canceled = False
+        GUI.download_button.setText("Resume")
 
     @classmethod
     def pause(cls):

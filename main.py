@@ -1,6 +1,7 @@
 # ----- Imports -----
 import ast
 import json
+import math
 import os
 import psutil
 import random
@@ -34,6 +35,8 @@ def clamp(value):
 
 # ----- Classes -----
 class Launcher:
+    buttons = []
+
     # ----- GUI -----
     @classmethod
     def create_window(cls):
@@ -105,10 +108,13 @@ class Launcher:
 
     @classmethod
     def set_scene(cls, scene_id):
+        buttons = []
+
         if scene_id == "update_launcher":
             pass
         elif scene_id == "download_game":
             cls.create_button("Download", print)
+            cls.setup_progress_bar()
         elif scene_id == "update_game":
             pass
         elif scene_id == "start":
@@ -166,6 +172,83 @@ class Launcher:
 
         # Custom variable to declare ???? 
         button.canceled = "Why? Rename?"
+
+        cls.buttons.append(button)
+    
+    @classmethod
+    def setup_progress_bar(cls):
+        # Create a Progressbar widget
+        cls.progress_bar = QProgressBar(cls.window)
+        cls.progress_bar.setGeometry(cls.window.width() // 5, int(cls.window.height() * 0.55), 3 * cls.window.width() // 5, round(40 * cls.size_multiplier))
+        cls.progress_bar.setStyleSheet(
+            """
+            QProgressBar {
+                border: 2px solid grey;
+                border-radius: 5px;
+                text-align: center;
+                font-size: 24px;
+            }
+            QProgressBar::chunk {
+                background-color: #2ad452;
+                border-radius: 3px;
+            }
+            """
+        )
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(10)
+        shadow.setColor(QColor(0, 0, 0))
+        shadow.setOffset(0, 0)
+        cls.progress_bar.setGraphicsEffect(shadow)
+        cls.progress_bar.setValue(100)
+        
+        progress_bar_thread = threading.Thread(target=cls.progress_bar_marquee, daemon=True)
+        progress_bar_thread.start()
+
+    @classmethod
+    def progress_bar_marquee(cls):
+        """
+        Thread function
+        """
+        color_shift = 0
+        color_shift_increment = 0.1
+        while True:
+            multi = cls.progress_bar.value() / 100
+            if multi <= 0:
+                time.sleep(0.1)
+                continue
+            elif multi >= 100:
+                return
+            
+            color_shift += color_shift_increment
+            
+            cls.progress_bar.setStyleSheet(
+                f"""
+                QProgressBar {{
+                    border: 2px solid black;
+                    border-radius: 5px;
+                    text-align: center;
+                    font-size: {round(24 * cls.size_multiplier)}px;
+                }}
+                QProgressBar::chunk {{
+                    background-color: qlineargradient(
+                        x1: 0,
+                        y1: 0,
+                        x2: {1 / multi},
+                        y2: 0,
+                        stop: 0.0 hsl({110 + math.sin(color_shift + color_shift_increment * 0) * 30}, 100%, 60%),
+                        stop: 0.2 hsl({110 + math.sin(color_shift + color_shift_increment * 10) * 30}, 100%, 60%),
+                        stop: 0.4 hsl({110 + math.sin(color_shift + color_shift_increment * 20) * 30}, 100%, 60%),
+                        stop: 0.5 hsl({110 + math.sin(color_shift + color_shift_increment * 30) * 30}, 100%, 60%),
+                        stop: 0.6 hsl({110 + math.sin(color_shift + color_shift_increment * 40) * 30}, 100%, 60%),
+                        stop: 0.8 hsl({110 + math.sin(color_shift + color_shift_increment * 50) * 30}, 100%, 60%),
+                        stop: 1.0 hsl({110 + math.sin(color_shift + color_shift_increment * 60) * 30}, 100%, 60%)
+                    );
+                    border-radius: 3px;
+                }}
+                """
+            )
+            time.sleep(0.05)
+            cls.app.processEvents()
 
     # ----- Launcher -----
     @staticmethod

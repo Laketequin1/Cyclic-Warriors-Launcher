@@ -6,6 +6,7 @@ import subprocess
 import zipfile
 import time
 import psutil
+import random
 import requests
 import threading
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QPushButton, QProgressBar, QGraphicsDropShadowEffect
@@ -106,7 +107,10 @@ class Downloader:
                 break
             GUI.progress_bar.setValue(round(i / 10))
             GUI.app.processEvents()
-            time.sleep(0.01)
+            if random.randint(1, 100) == 1100:
+                time.sleep(4.5)
+            else:
+                time.sleep(0.005)
         else:
             GUI.download_button.setStyleSheet(
                 f"""
@@ -148,13 +152,13 @@ class Downloader:
             """
         )
         GUI.download_button.clicked.disconnect(cls.pause)
-        GUI.download_button.clicked.connect(cls.update_game)
+        GUI.download_button.clicked.connect(cls.download_game)
         GUI.download_button.canceled = False
         GUI.download_button.setText("Resume")
 
     @classmethod
     def pause(cls):
-        cls.download_button.canceled = True
+        GUI.download_button.canceled = True
 
     @classmethod
     def start(cls):
@@ -163,7 +167,7 @@ class Downloader:
         
 class GUI:
     @classmethod
-    def setup_ui(cls, app, window, size_multiplier):
+    def setup_ui(cls, app: QApplication, window, size_multiplier):
         cls.app = app
         cls.window = window
         cls.size_multiplier = size_multiplier
@@ -243,7 +247,7 @@ class GUI:
     def setup_progress_bar(cls):
         # Create a Progressbar widget
         cls.progress_bar = QProgressBar(cls.window)
-        cls.progress_bar.setGeometry(cls.window.width() // 5, int(cls.window.height() * 0.55), 3 * cls.window.width() // 5, round(30 * cls.size_multiplier))
+        cls.progress_bar.setGeometry(cls.window.width() // 5, int(cls.window.height() * 0.55), 3 * cls.window.width() // 5, round(40 * cls.size_multiplier))
         cls.progress_bar.setStyleSheet(
             """
             QProgressBar {
@@ -263,6 +267,56 @@ class GUI:
         shadow.setColor(QColor(0, 0, 0))
         shadow.setOffset(0, 0)
         cls.progress_bar.setGraphicsEffect(shadow)
+        
+        progress_bar_thread = threading.Thread(target=cls.progress_bar_marquee, daemon=True)
+        progress_bar_thread.start()
+
+    @classmethod
+    def progress_bar_marquee(cls):
+        color_shift = 0
+        color_shift_increment = 2
+        while True:
+            multi = cls.progress_bar.value() / 100
+            if multi <= 0:
+                time.sleep(0.1)
+                continue
+            elif multi >= 100:
+                return
+            
+            color_shift += color_shift_increment
+            
+            cls.progress_bar.setStyleSheet(
+                f"""
+                QProgressBar {{
+                    border: 2px solid black;
+                    border-radius: 5px;
+                    text-align: center;
+                    font-size: {round(24 * cls.size_multiplier)}px;
+                }}
+                QProgressBar::chunk {{
+                    background-color: qlineargradient(
+                        x1: 0,
+                        y1: 0,
+                        x2: {1 / multi},
+                        y2: 0,
+                        stop: 0.0 hsl({(0   + color_shift) % 360}, 100%, 60%),
+                        stop: 0.1 hsl({(30  + color_shift) % 360}, 100%, 60%),
+                        stop: 0.2 hsl({(60  + color_shift) % 360}, 100%, 60%),
+                        stop: 0.3 hsl({(90  + color_shift) % 360}, 100%, 60%),
+                        stop: 0.4 hsl({(120 + color_shift) % 360}, 100%, 60%),
+                        stop: 0.5 hsl({(150 + color_shift) % 360}, 100%, 60%),
+                        stop: 0.6 hsl({(180 + color_shift) % 360}, 100%, 60%),
+                        stop: 0.7 hsl({(210 + color_shift) % 360}, 100%, 60%),
+                        stop: 0.8 hsl({(240 + color_shift) % 360}, 100%, 60%),
+                        stop: 0.9 hsl({(270 + color_shift) % 360}, 100%, 60%),
+                        stop: 1.0 hsl({(300 + color_shift) % 360}, 100%, 60%)
+                    );
+                    border-radius: 3px;
+                }}
+                """
+            )
+            time.sleep(0.05)
+            cls.app.processEvents()
 
     @classmethod
     def close_elements(cls):

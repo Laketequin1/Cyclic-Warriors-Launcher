@@ -33,7 +33,7 @@ def clamp(value):
     return max(0, min(1, value))
 
 # ----- Classes -----
-class Downloader:
+class Launcher:
     # ----- GUI -----
     @classmethod
     def create_window(cls):
@@ -103,55 +103,182 @@ class Downloader:
         """
         cls.window.show()
 
-    # ----- Downloader -----
+    @classmethod
+    def set_scene(cls, scene_id):
+        if scene_id == "update_launcher":
+            pass
+        elif scene_id == "download_game":
+            cls.create_button("Download", print)
+        elif scene_id == "update_game":
+            pass
+        elif scene_id == "start":
+            pass
+        else:
+            raise Exception(f'The scene_id "{scene_id}" in set_scene() is not valid.')
+        
+    @classmethod
+    def create_button(cls, content, connect):
+        """
+        Create and style a custom button widget in the application window.
+
+        Args:
+            content (str): The text content displayed on the button.
+            connect (callable): The function or method to connect to the button's click event.
+
+        Returns:
+            None
+        """
+        # Create a button widget and style it
+        button = QPushButton(content, cls.window)
+        button.setGeometry(round(cls.window.width() / 2 - round(200 * cls.size_multiplier) / 2), int(cls.window.height() * 0.42), round(200 * cls.size_multiplier), round(50 * cls.size_multiplier))
+        button.setStyleSheet(
+            f"""
+            :!hover {{
+                border: 1px solid black;
+                font-size: {round(24 * cls.size_multiplier)}px;
+                font-weight: bold;
+                color: white;
+                background-color: #1948d1;
+                border-radius: 5px;
+            }}
+
+            :hover {{
+                border: 1px solid black;
+                font-size: {round(24 * cls.size_multiplier)}px;
+                font-weight: bold;
+                color: white;
+                background-color: #2c59de;
+                border-radius: 5px;
+            }}
+            """
+        )
+
+        # Add shadow around the button
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(10)
+        shadow.setColor(QColor(0, 0, 0))
+        shadow.setOffset(0, 0)
+        button.setGraphicsEffect(shadow)
+
+        # Apply hover and click changes
+        button.clicked.connect(connect)
+        button.setCursor(QCursor(Qt.PointingHandCursor))
+
+        # Custom variable to declare ???? 
+        button.canceled = "Why? Rename?"
+
+    # ----- Launcher -----
     @staticmethod
     def fix_json(message: str):
-        message = message.replace("\\n", "").replace("\\r", "").replace("\\t", "")
+        """
+        Fix a JSON-like string by removing escape characters.
+
+        This static method takes a JSON message as input, removes escape characters for newline, carriage return, tab, and trims any leading and trailing spaces.
+
+        Args:
+            message (str): The input JSON-like string to be fixed.
+
+        Returns:
+            str: The fixed JSON-like string with escape characters removed and outer quotes stripped.
+        """
+        message = message.replace("\\n", "").replace("\\r", "").replace("\\t", "").strip()
         return message[2:len(message) - 1]
     
     @staticmethod
     def evaluate_message(message):
+        """
+        Safely evaluate a message as a literal Python expression.
+
+        This function is used to convert the request content to a Python data structure.
+
+        Args:
+            message (str): The message to be evaluated as a Python expression.
+
+        Returns:
+            object: The result of the evaluation, or None if the message is empty or unable to be evaluated.
+        """
         if message:
             return ast.literal_eval(message)
         return None
 
     @staticmethod
     def get_installed_versions():
+        """
+        Retrieve installed versions of an application from a JSON file.
+
+        This static method reads "saved_data.json" to retrieve the installed versions of this Launcher and Cyclic Warriors, then returns these as a Python data structure.
+
+        Returns:
+            dict: A dictionary containing information about installed Game and Launcher versions.
+        """
         with open("saved_data.json", "r") as file:
             return json.load(file)
         
     @classmethod
-    def get_latest_versions(cls):
+    def get_version_data(cls):
+        """
+        Fetch and process the latest versions of the Launcher and Cyclic Warriors game data.
+
+        This class method sends a GET request to the GAME_DATA_URL on the official website, processes the response content, and then evaluates it as JSON data.
+        
+        The JSON content includes information on:
+        - InitialDownload (str): Name of the zip file required for the original download.
+        - CurrentFiles (list): Required files and binary paths for the latest game version.
+        - PatchChanges (dict): File changes for each version update, with version numbers as keys and affected files in a dict.
+        - Launcher (int): The most recent launcher version.
+
+        Returns:
+            dict: A dictionary containing the parsed JSON data.
+        """
         response = requests.get(GAME_DATA_URL)
         content = cls.fix_json(str(response.content))
         json_response = cls.evaluate_message(content)
         return json_response
+    
+    @staticmethod
+    def extract_version_data(parsed_json_data):
+        """
+        Extract the latest game and launcher versions from parsed JSON data.
+
+        This static method takes a parsed JSON data dictionary as input and extracts the latest game version and launcher version information.
+
+        Args:
+            parsed_json_data (dict): Parsed JSON data containing version information.
+
+        Returns:
+            dict: A dictionary with keys "GameVersion" and "LauncherVersion" representing the latest game and launcher versions.
+        """
+        latest_game_version = max(parsed_json_data["PatchChanges"].keys())
+        latest_launcher_version = int(parsed_json_data["Launcher"])
+        return {"GameVersion": latest_game_version, "LauncherVersion": latest_launcher_version}
 
 
 # ----- Main -----
 def main():
-    Downloader.create_window()
-    Downloader.setup_ui()
+    # Setup GUI
+    Launcher.create_window()
+    Launcher.setup_ui()
     
-    installed_versions = Downloader.get_installed_versions()
-    print(installed_versions)
-    latest_versions = Downloader.get_latest_versions()
+    # Get version data
+    installed_versions = Launcher.get_installed_versions()
+    data = Launcher.get_version_data()
+    latest_versions = Launcher.extract_version_data(data)
 
-    """
-    if installed_versions["installer"] < latest_versions["installer"]:
-        Downloader.set_scene("update_installer")
-        #--> Downloader.setup_installer_download_threads() onclick
-    elif installed_versions["game"] == 0:
-        Downloader.set_scene("download_game")
-        #--> Downloader.setup_game_download_threads() onclick
-    elif installed_versions["game"] < latest_versions["game"]:
-        Downloader.set_scene("update_game")
-        #--> Downloader.setup_game_upload_threads() onclick
+    # Set required scene
+    if installed_versions["LauncherVersion"] < latest_versions["LauncherVersion"] and False:
+        Launcher.set_scene("update_launcher")
+        #--> Launcher.setup_launcher_download_threads() onclick
+    elif installed_versions["GameVersion"] == 0:
+        Launcher.set_scene("download_game")
+        #--> Launcher.setup_game_download_threads() onclick
+    elif installed_versions["GameVersion"] < latest_versions["GameVersion"]:
+        Launcher.set_scene("update_game")
+        #--> Launcher.setup_game_upload_threads() onclick
     else:
-        Downloader.set_scene("start")
-    """
-    Downloader.show()
-    sys.exit(Downloader.app.exec_())
+        Launcher.set_scene("start")
+    
+    Launcher.show()
+    sys.exit(Launcher.app.exec_())
 
 # ----- Entry Point -----
 if __name__ == "__main__":

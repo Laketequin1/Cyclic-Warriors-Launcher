@@ -35,6 +35,7 @@ def clamp(value):
 
 # ----- Classes -----
 class Launcher:
+    # All currently used buttons
     buttons = []
 
     # ----- GUI -----
@@ -108,7 +109,7 @@ class Launcher:
 
     @classmethod
     def set_scene(cls, scene_id):
-        buttons = []
+        # Remove all existing buttons and progressbar
 
         if scene_id == "update_launcher":
             pass
@@ -159,7 +160,7 @@ class Launcher:
             """
         )
 
-        # Add shadow around the button
+        # Add a shadow around the button
         shadow = QGraphicsDropShadowEffect()
         shadow.setBlurRadius(10)
         shadow.setColor(QColor(0, 0, 0))
@@ -173,11 +174,20 @@ class Launcher:
         # Custom variable to declare ???? 
         button.canceled = "Why? Rename?"
 
+        # Add button to buttons
         cls.buttons.append(button)
     
     @classmethod
     def setup_progress_bar(cls):
-        # Create a Progressbar widget
+        """
+        Set up and configure the progress bar widget within the application window.
+
+        This class method creates a QProgressBar widget, sets its position and style, and adds a drop shadow effect. It also initializes the progress bar and starts a separate thread for the marquee animation.
+
+        Returns:
+            None
+        """
+        # Create a Progressbar widget and style it
         cls.progress_bar = QProgressBar(cls.window)
         cls.progress_bar.setGeometry(cls.window.width() // 5, int(cls.window.height() * 0.55), 3 * cls.window.width() // 5, round(40 * cls.size_multiplier))
         cls.progress_bar.setStyleSheet(
@@ -194,33 +204,47 @@ class Launcher:
             }
             """
         )
+
+        # Add a shadow around the progress bar
         shadow = QGraphicsDropShadowEffect()
         shadow.setBlurRadius(10)
         shadow.setColor(QColor(0, 0, 0))
         shadow.setOffset(0, 0)
         cls.progress_bar.setGraphicsEffect(shadow)
-        cls.progress_bar.setValue(100)
+        cls.progress_bar.setValue(95)
         
+        # Start the marquee animation thread
         progress_bar_thread = threading.Thread(target=cls.progress_bar_marquee, daemon=True)
         progress_bar_thread.start()
 
     @classmethod
     def progress_bar_marquee(cls):
         """
-        Thread function
+        Thread function to animate a marquee-style progress bar.
+
+        This class method is used to create an animated progress bar. It runs as a separate thread and continuously updates the progress bar's style, giving it a shifting gradient appearance. The animation enhances the visual feedback for users during long-running tasks. The animation is achieved by modifying the background color of the progress bar using HSL color values, and shifting along the bar with a sin wave.
+
+        Returns:
+            None
         """
         color_shift = 0
-        color_shift_increment = 0.1
-        while True:
+        color_shift_increment = 0.05
+
+        # Exit loop if progress bar does not exist
+        while hasattr(cls, 'progress_bar') and cls.progress_bar is not None:
             multi = cls.progress_bar.value() / 100
-            if multi <= 0:
+
+            # Prevent unnecessary calculations
+            if multi <= 0 or multi > 100:
                 time.sleep(0.1)
                 continue
-            elif multi >= 100:
-                return
-            
+
             color_shift += color_shift_increment
-            
+
+            # Define the background color using a single hsl() function
+            hsl_color = lambda offset: f"hsl({110 + math.sin(color_shift + color_shift_increment * offset) * 35}, 100%, 60%)"
+
+            # Set the progress bar style to contain a shifting gradient
             cls.progress_bar.setStyleSheet(
                 f"""
                 QProgressBar {{
@@ -231,24 +255,22 @@ class Launcher:
                 }}
                 QProgressBar::chunk {{
                     background-color: qlineargradient(
-                        x1: 0,
-                        y1: 0,
-                        x2: {1 / multi},
-                        y2: 0,
-                        stop: 0.0 hsl({110 + math.sin(color_shift + color_shift_increment * 0) * 30}, 100%, 60%),
-                        stop: 0.2 hsl({110 + math.sin(color_shift + color_shift_increment * 10) * 30}, 100%, 60%),
-                        stop: 0.4 hsl({110 + math.sin(color_shift + color_shift_increment * 20) * 30}, 100%, 60%),
-                        stop: 0.5 hsl({110 + math.sin(color_shift + color_shift_increment * 30) * 30}, 100%, 60%),
-                        stop: 0.6 hsl({110 + math.sin(color_shift + color_shift_increment * 40) * 30}, 100%, 60%),
-                        stop: 0.8 hsl({110 + math.sin(color_shift + color_shift_increment * 50) * 30}, 100%, 60%),
-                        stop: 1.0 hsl({110 + math.sin(color_shift + color_shift_increment * 60) * 30}, 100%, 60%)
+                        x1: 0, y1: 0,
+                        x2: {1 / multi}, y2: 0,
+                        stop: 0.0 {hsl_color(0)},
+                        stop: 0.2 {hsl_color(12)},
+                        stop: 0.4 {hsl_color(24)},
+                        stop: 0.5 {hsl_color(36)},
+                        stop: 0.6 {hsl_color(48)},
+                        stop: 0.8 {hsl_color(60)},
+                        stop: 1.0 {hsl_color(72)}
                     );
                     border-radius: 3px;
                 }}
                 """
             )
+
             time.sleep(0.05)
-            cls.app.processEvents()
 
     # ----- Launcher -----
     @staticmethod

@@ -20,6 +20,8 @@ from PyQt5.QtCore import Qt
 GAME_DATA_URL = "https://reallylinux.nz/RaisSoftware/cw/game_data.json"
 ORIGINAL_HEIGHT = 540
 
+# https://stackoverflow.com/questions/25733142/qwidgetrepaint-recursive-repaint-detected-when-updating-progress-bar
+
 # ----- Functions -----
 def clamp(value):
     """
@@ -35,9 +37,6 @@ def clamp(value):
 
 # ----- Classes -----
 class Launcher:
-    # All currently used buttons
-    buttons = []
-
     # ----- GUI -----
     @classmethod
     def create_window(cls):
@@ -114,7 +113,7 @@ class Launcher:
         if scene_id == "update_launcher":
             pass
         elif scene_id == "download_game":
-            cls.create_button("Download", print)
+            cls.create_button("Download", cls.download_game)
             cls.setup_progress_bar()
         elif scene_id == "update_game":
             pass
@@ -136,9 +135,9 @@ class Launcher:
             None
         """
         # Create a button widget and style it
-        button = QPushButton(content, cls.window)
-        button.setGeometry(round(cls.window.width() / 2 - round(200 * cls.size_multiplier) / 2), int(cls.window.height() * 0.42), round(200 * cls.size_multiplier), round(50 * cls.size_multiplier))
-        button.setStyleSheet(
+        cls.button = QPushButton(content, cls.window)
+        cls.button.setGeometry(round(cls.window.width() / 2 - round(200 * cls.size_multiplier) / 2), int(cls.window.height() * 0.42), round(200 * cls.size_multiplier), round(50 * cls.size_multiplier))
+        cls.button.setStyleSheet(
             f"""
             :!hover {{
                 border: 1px solid black;
@@ -165,17 +164,14 @@ class Launcher:
         shadow.setBlurRadius(10)
         shadow.setColor(QColor(0, 0, 0))
         shadow.setOffset(0, 0)
-        button.setGraphicsEffect(shadow)
+        cls.button.setGraphicsEffect(shadow)
 
         # Apply hover and click changes
-        button.clicked.connect(connect)
-        button.setCursor(QCursor(Qt.PointingHandCursor))
+        cls.button.clicked.connect(connect)
+        cls.button.setCursor(QCursor(Qt.PointingHandCursor))
 
-        # Custom variable to declare ???? 
-        button.canceled = "Why? Rename?"
-
-        # Add button to buttons
-        cls.buttons.append(button)
+        # Custom variable to declare when button state is paused
+        cls.button.paused = False
     
     @classmethod
     def setup_progress_bar(cls):
@@ -211,7 +207,6 @@ class Launcher:
         shadow.setColor(QColor(0, 0, 0))
         shadow.setOffset(0, 0)
         cls.progress_bar.setGraphicsEffect(shadow)
-        cls.progress_bar.setValue(95)
         
         # Start the marquee animation thread
         progress_bar_thread = threading.Thread(target=cls.progress_bar_marquee, daemon=True)
@@ -271,6 +266,14 @@ class Launcher:
             )
 
             time.sleep(0.05)
+
+    @classmethod
+    def pause(cls):
+        cls.button.paused = True
+
+    @classmethod
+    def resume(cls):
+        cls.button.paused = False
 
     # ----- Launcher -----
     @staticmethod
@@ -356,6 +359,97 @@ class Launcher:
         latest_game_version = max(parsed_json_data["PatchChanges"].keys())
         latest_launcher_version = int(parsed_json_data["Launcher"])
         return {"GameVersion": latest_game_version, "LauncherVersion": latest_launcher_version}
+    
+    @classmethod
+    def download_game_thread(cls):
+        for i in range(1001):
+            if cls.button.paused:
+                break
+
+            cls.progress_bar.setValue(round(i / 10))
+            cls.app.processEvents()
+            
+            if random.randint(1, 400) == 1:
+                time.sleep(2)
+            else:
+                time.sleep(0.005)
+        else:
+            cls.button.setStyleSheet(
+                f"""
+                border: 1px solid black;
+                font-size: {round(24 * cls.size_multiplier)}px;
+                font-weight: bold;
+                color: white;
+                background-color: #2ad452;
+                border-radius: 5px;
+                """
+            )
+            cls.button.clicked.disconnect(cls.pause)
+            cls.button.clicked.connect(sys.exit)
+            cls.button.setText("FINISHED!")
+            cls.button.setCursor(QCursor(Qt.ArrowCursor))
+            cls.app.processEvents()
+            time.sleep(1)
+            #cls.close_elements()
+            return
+
+        cls.button.setStyleSheet(
+            f"""
+            :!hover {{
+                border: 1px solid black;
+                font-size: {round(24 * cls.size_multiplier)}px;
+                font-weight: bold;
+                color: white;
+                background-color: #1948d1;
+                border-radius: 5px;
+            }}
+
+            :hover {{
+                border: 1px solid black;
+                font-size: {round(24 * cls.size_multiplier)}px;
+                font-weight: bold;
+                color: white;
+                background-color: #2c59de;
+                border-radius: 5px;
+            }}
+            """
+        )
+        cls.button.clicked.disconnect(cls.pause)
+        cls.button.clicked.connect(cls.download_game)
+        cls.button.paused = False
+        cls.button.setText("Resume")
+
+    @classmethod
+    def download_game(cls):
+        print("OIPUHGOUIYG")
+        cls.button.setStyleSheet(
+            f"""
+            :!hover {{
+                border: 1px solid black;
+                font-size: {round(24 * cls.size_multiplier)}px;
+                font-weight: bold;
+                color: white;
+                background-color: #3e64d6;
+                border-radius: 5px;
+            }}
+
+            :hover {{
+                border: 1px solid black;
+                font-size: {round(24 * cls.size_multiplier)}px;
+                font-weight: bold;
+                color: white;
+                background-color: #5377e0;
+                border-radius: 5px;
+            }}
+            """
+        )
+        cls.button.clicked.disconnect(cls.download_game)
+        cls.button.clicked.connect(cls.pause)
+        cls.button.setText("Pause")
+
+        # Start the marquee animation thread
+        download_thread = threading.Thread(target=cls.download_game_thread, daemon=True)
+        download_thread.start()
 
 
 # ----- Main -----

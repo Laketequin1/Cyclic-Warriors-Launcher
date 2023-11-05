@@ -18,10 +18,14 @@ from PyQt5.QtCore import Qt, QTimer
 
 # ----- Constant Variables -----
 GAME_DATA_URL = "https://reallylinux.nz/RaisSoftware/cw/game_data.json"
+ZIP_FILES_URL = "https://reallylinux.nz/RaisSoftware/cw/game/"
+CORE_FILES_URL = "https://reallylinux.nz/RaisSoftware/cw/game/corefiles/"
 
 ORIGINAL_HEIGHT = 540
 
 DISPLAY_FPS = 60
+
+MAX_THREADS = 4
 
 # ----- Functions -----
 def clamp(value):
@@ -355,8 +359,8 @@ class Launcher:
             cls.progress_bar_marquee()
 
             with cls.progress_lock:
-                if cls.progress != cls.progress_bar.value():
-                    cls.progress_bar.setValue(cls.progress)
+                if round(cls.progress) != cls.progress_bar.value():
+                    cls.progress_bar.setValue(round(cls.progress))
             
             with cls.button_lock:
                 if cls.button_style_sheet != cls.progress_bar.styleSheet():
@@ -444,6 +448,8 @@ class Launcher:
         response = requests.get(GAME_DATA_URL)
         content = cls.fix_json(str(response.content))
         json_response = cls.evaluate_message(content)
+
+        cls.data = json_response
         return json_response
     
     @staticmethod
@@ -470,7 +476,7 @@ class Launcher:
                 time.sleep(0.1)
             
             with cls.progress_lock:
-                cls.progress = round(i / 10)
+                cls.progress = i / 10
             
             if random.randint(1, 400) == 1:
                 time.sleep(2)
@@ -490,6 +496,40 @@ class Launcher:
                 cls.button_text = "FINISHED!"
                 cls.button_cursor = QCursor(Qt.ArrowCursor)
             time.sleep(1)
+            return
+
+    @classmethod
+    def download_file(cls, file_path, total_files):
+        file_name = file_path.split("/")[-1]
+        file_location = "/".join(file_path.split("/")[:-1])
+
+        url = CORE_FILES_URL + file_name
+
+        response = requests.get(url, stream=True)
+
+        if response.status_code == 200:
+            os.makedirs(file_location, exist_ok=True)
+
+            total_size = int(response.headers.get('content-length', 0))
+            downloaded_size = 0
+
+            with open(file_path, 'wb') as file:
+                for data in response.iter_content(chunk_size=8192):
+                    if data:
+                        file.write(data)
+                        downloaded_size = len(data)
+                        with cls.progress_lock:
+                            cls.progress += (100 / total_files / total_size) * downloaded_size
+                            print(f"{(100 / total_files / total_size)} Download progress: {cls.progress:.2f}%")
+
+            print(f"File downloaded as {file_path}")
+        else:
+            print(f"Failed to download the file: {file_path}. Status code: {response.status_code}")
+
+    @classmethod
+    def download_core_files(cls, file_paths, total_files):
+        for path in file_paths:
+            cls.download_file(path, total_files)
             return
 
     @classmethod
@@ -517,9 +557,21 @@ class Launcher:
         cls.button_onclick = cls.pause
         cls.button_text = "Pause"
 
+        # Split the list into chunks for each thread
+        file_count = len(cls.data["CurrentFiles"])
+        chunk_size = file_count // MAX_THREADS
+        chunks = [cls.data["CurrentFiles"][i:i + chunk_size] for i in range(0, len(cls.data["CurrentFiles"]), chunk_size)]
+
+        # Create and start threads
+        cls.threads = []
+        for chunk in chunks:
+            thread = threading.Thread(target=cls.download_core_files, args=(chunk, file_count), daemon=True)
+            thread.start()
+            cls.threads.append(thread)
+
         # Start the marquee animation thread
-        download_thread = threading.Thread(target=cls.download_game_thread, daemon=True)
-        download_thread.start()
+        #download_thread = threading.Thread(target=cls.download_game_thread, daemon=True)
+        #download_thread.start()
 
 
 # ----- Main -----

@@ -14,13 +14,14 @@ import zipfile
 
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QPushButton, QProgressBar, QGraphicsDropShadowEffect
 from PyQt5.QtGui import QPixmap, QIcon, QColor, QCursor
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QTimer
 
 # ----- Constant Variables -----
 GAME_DATA_URL = "https://reallylinux.nz/RaisSoftware/cw/game_data.json"
+
 ORIGINAL_HEIGHT = 540
 
-# https://stackoverflow.com/questions/25733142/qwidgetrepaint-recursive-repaint-detected-when-updating-progress-bar
+DISPLAY_FPS = 60
 
 # ----- Functions -----
 def clamp(value):
@@ -37,6 +38,10 @@ def clamp(value):
 
 # ----- Classes -----
 class Launcher:
+    button_lock = threading.Lock()
+    progress_lock = threading.Lock()
+    pause_lock = threading.Lock()
+
     # ----- GUI -----
     @classmethod
     def create_window(cls):
@@ -99,12 +104,17 @@ class Launcher:
     @classmethod
     def show(cls):
         """
-        Show the main window of the PyQt5 application.
+        Show the main window of the PyQt5 application, and start the update loop.
 
         Returns:
             None
         """
         cls.window.show()
+
+        # Create a QTimer to update at the set FPS
+        cls.timer = QTimer()
+        cls.timer.timeout.connect(cls.update)
+        cls.timer.start(1000 // DISPLAY_FPS)
 
     @classmethod
     def set_scene(cls, scene_id):
@@ -121,6 +131,8 @@ class Launcher:
             pass
         else:
             raise Exception(f'The scene_id "{scene_id}" in set_scene() is not valid.')
+        
+        cls.current_scene = scene_id
         
     @classmethod
     def create_button(cls, content, connect):
@@ -171,8 +183,14 @@ class Launcher:
         cls.button.setCursor(QCursor(Qt.PointingHandCursor))
 
         # Custom variable to declare when button state is paused
-        cls.button.paused = False
-    
+        cls.resume()
+
+        cls.button_style_sheet = cls.button.styleSheet()
+        cls.button_text = cls.button.text()
+        cls.button_cursor = cls.button.cursor()
+        cls.button_onclick = connect
+        cls.button_previous_onclick = connect
+
     @classmethod
     def setup_progress_bar(cls):
         """
@@ -207,73 +225,158 @@ class Launcher:
         shadow.setColor(QColor(0, 0, 0))
         shadow.setOffset(0, 0)
         cls.progress_bar.setGraphicsEffect(shadow)
+
+        # Progress bar completion
+        cls.progress = 0
         
-        # Start the marquee animation thread
-        progress_bar_thread = threading.Thread(target=cls.progress_bar_marquee, daemon=True)
-        progress_bar_thread.start()
+        # Color shift for marquee
+        cls.color_base = 115
+        cls.color_paused = 360
+        cls.color_shift = 0
+        cls.color_shift_increment = 0.04
 
     @classmethod
     def progress_bar_marquee(cls):
         """
-        Thread function to animate a marquee-style progress bar.
+        Function to animate a marquee-style progress bar.
 
         This class method is used to create an animated progress bar. It runs as a separate thread and continuously updates the progress bar's style, giving it a shifting gradient appearance. The animation enhances the visual feedback for users during long-running tasks. The animation is achieved by modifying the background color of the progress bar using HSL color values, and shifting along the bar with a sin wave.
 
         Returns:
             None
         """
-        color_shift = 0
-        color_shift_increment = 0.05
-
         # Exit loop if progress bar does not exist
-        while hasattr(cls, 'progress_bar') and cls.progress_bar is not None:
-            multi = cls.progress_bar.value() / 100
+        multi = cls.progress_bar.value() / 100
 
-            # Prevent unnecessary calculations
-            if multi <= 0 or multi > 100:
-                time.sleep(0.1)
-                continue
+        # Prevent unnecessary calculations and plausable errors
+        if multi <= 0 or multi > 100:
+            return
 
-            color_shift += color_shift_increment
+        cls.color_shift += cls.color_shift_increment
+        
+        if cls.get_paused():
+            color_base = cls.color_paused
+        else:
+            color_base = cls.color_base
 
-            # Define the background color using a single hsl() function
-            hsl_color = lambda offset: f"hsl({110 + math.sin(color_shift + color_shift_increment * offset) * 35}, 100%, 60%)"
+        # Define the background color using a single hsl() function
+        hsl_color = lambda offset: f"hsl({round(color_base + math.sin(cls.color_shift + cls.color_shift_increment * offset) * 36) % 360}, 100%, 60%)"
 
-            # Set the progress bar style to contain a shifting gradient
-            cls.progress_bar.setStyleSheet(
-                f"""
-                QProgressBar {{
-                    border: 2px solid black;
-                    border-radius: 5px;
-                    text-align: center;
-                    font-size: {round(24 * cls.size_multiplier)}px;
-                }}
-                QProgressBar::chunk {{
-                    background-color: qlineargradient(
-                        x1: 0, y1: 0,
-                        x2: {1 / multi}, y2: 0,
-                        stop: 0.0 {hsl_color(0)},
-                        stop: 0.2 {hsl_color(12)},
-                        stop: 0.4 {hsl_color(24)},
-                        stop: 0.5 {hsl_color(36)},
-                        stop: 0.6 {hsl_color(48)},
-                        stop: 0.8 {hsl_color(60)},
-                        stop: 1.0 {hsl_color(72)}
-                    );
-                    border-radius: 3px;
-                }}
-                """
-            )
-
-            time.sleep(0.05)
+        # Set the progress bar style to contain a shifting gradient
+        cls.progress_bar.setStyleSheet(
+            f"""
+            QProgressBar {{
+                border: 2px solid black;
+                border-radius: 5px;
+                text-align: center;
+                font-size: {round(24 * cls.size_multiplier)}px;
+            }}
+            QProgressBar::chunk {{
+                background-color: qlineargradient(
+                    x1: 0, y1: 0,
+                    x2: {1 / multi}, y2: 0,
+                    stop: 0.0 {hsl_color(0)},
+                    stop: 0.2 {hsl_color(12)},
+                    stop: 0.4 {hsl_color(24)},
+                    stop: 0.5 {hsl_color(36)},
+                    stop: 0.6 {hsl_color(48)},
+                    stop: 0.8 {hsl_color(60)},
+                    stop: 1.0 {hsl_color(72)}
+                );
+                border-radius: 3px;
+            }}
+            """
+        )
 
     @classmethod
     def pause(cls):
-        cls.button.paused = True
+        with cls.pause_lock:
+            cls.paused = True
+        
+        cls.button_style_sheet = f"""
+            :!hover {{
+                border: 1px solid black;
+                font-size: {round(24 * cls.size_multiplier)}px;
+                font-weight: bold;
+                color: white;
+                background-color: #1948d1;
+                border-radius: 5px;
+            }}
+
+            :hover {{
+                border: 1px solid black;
+                font-size: {round(24 * cls.size_multiplier)}px;
+                font-weight: bold;
+                color: white;
+                background-color: #2c59de;
+                border-radius: 5px;
+            }}
+            """
+        cls.button_onclick = cls.resume
+        cls.button_text = "Resume"
 
     @classmethod
     def resume(cls):
-        cls.button.paused = False
+        with cls.pause_lock:
+            cls.paused = False
+        
+        cls.button_style_sheet = f"""
+            :!hover {{
+                border: 1px solid black;
+                font-size: {round(24 * cls.size_multiplier)}px;
+                font-weight: bold;
+                color: white;
+                background-color: #3e64d6;
+                border-radius: 5px;
+            }}
+
+            :hover {{
+                border: 1px solid black;
+                font-size: {round(24 * cls.size_multiplier)}px;
+                font-weight: bold;
+                color: white;
+                background-color: #5377e0;
+                border-radius: 5px;
+            }}
+            """
+        cls.button_onclick = cls.pause
+        cls.button_text = "Pause"
+    
+    @classmethod
+    def get_paused(cls):
+        with cls.pause_lock:
+            return cls.paused
+
+    @classmethod
+    def update(cls):
+        if cls.current_scene == "update_launcher":
+            pass
+        elif cls.current_scene == "download_game":
+            cls.progress_bar_marquee()
+
+            with cls.progress_lock:
+                if cls.progress != cls.progress_bar.value():
+                    cls.progress_bar.setValue(cls.progress)
+            
+            with cls.button_lock:
+                if cls.button_style_sheet != cls.progress_bar.styleSheet():
+                    cls.button.setStyleSheet(cls.button_style_sheet)
+                
+                if cls.button_previous_onclick != cls.button_onclick:
+                    cls.button_previous_onclick = cls.button_onclick
+                    cls.button.clicked.disconnect()
+                    cls.button.clicked.connect(cls.button_onclick)
+
+                if cls.button_text != cls.button.text():
+                    cls.button.setText(cls.button_text)
+
+                if cls.button_cursor != cls.button.cursor():
+                    cls.button.setCursor(cls.button_cursor)
+
+        elif cls.current_scene == "update_game":
+            pass
+        elif cls.current_scene == "start":
+            pass
 
     # ----- Launcher -----
     @staticmethod
@@ -363,67 +466,36 @@ class Launcher:
     @classmethod
     def download_game_thread(cls):
         for i in range(1001):
-            if cls.button.paused:
-                break
-
-            cls.progress_bar.setValue(round(i / 10))
-            cls.app.processEvents()
+            while cls.get_paused():
+                time.sleep(0.1)
+            
+            with cls.progress_lock:
+                cls.progress = round(i / 10)
             
             if random.randint(1, 400) == 1:
                 time.sleep(2)
             else:
                 time.sleep(0.005)
         else:
-            cls.button.setStyleSheet(
-                f"""
-                border: 1px solid black;
-                font-size: {round(24 * cls.size_multiplier)}px;
-                font-weight: bold;
-                color: white;
-                background-color: #2ad452;
-                border-radius: 5px;
-                """
-            )
-            cls.button.clicked.disconnect(cls.pause)
-            cls.button.clicked.connect(sys.exit)
-            cls.button.setText("FINISHED!")
-            cls.button.setCursor(QCursor(Qt.ArrowCursor))
-            cls.app.processEvents()
+            with cls.button_lock:
+                cls.button_style_sheet = f"""
+                    border: 1px solid black;
+                    font-size: {round(24 * cls.size_multiplier)}px;
+                    font-weight: bold;
+                    color: white;
+                    background-color: #20c747;
+                    border-radius: 5px;
+                    """
+                cls.button_onclick = sys.exit
+                cls.button_text = "FINISHED!"
+                cls.button_cursor = QCursor(Qt.ArrowCursor)
             time.sleep(1)
-            #cls.close_elements()
             return
-
-        cls.button.setStyleSheet(
-            f"""
-            :!hover {{
-                border: 1px solid black;
-                font-size: {round(24 * cls.size_multiplier)}px;
-                font-weight: bold;
-                color: white;
-                background-color: #1948d1;
-                border-radius: 5px;
-            }}
-
-            :hover {{
-                border: 1px solid black;
-                font-size: {round(24 * cls.size_multiplier)}px;
-                font-weight: bold;
-                color: white;
-                background-color: #2c59de;
-                border-radius: 5px;
-            }}
-            """
-        )
-        cls.button.clicked.disconnect(cls.pause)
-        cls.button.clicked.connect(cls.download_game)
-        cls.button.paused = False
-        cls.button.setText("Resume")
 
     @classmethod
     def download_game(cls):
-        print("OIPUHGOUIYG")
-        cls.button.setStyleSheet(
-            f"""
+        print("RAN")
+        cls.button_style_sheet = f"""
             :!hover {{
                 border: 1px solid black;
                 font-size: {round(24 * cls.size_multiplier)}px;
@@ -442,10 +514,8 @@ class Launcher:
                 border-radius: 5px;
             }}
             """
-        )
-        cls.button.clicked.disconnect(cls.download_game)
-        cls.button.clicked.connect(cls.pause)
-        cls.button.setText("Pause")
+        cls.button_onclick = cls.pause
+        cls.button_text = "Pause"
 
         # Start the marquee animation thread
         download_thread = threading.Thread(target=cls.download_game_thread, daemon=True)

@@ -1,10 +1,24 @@
 {
     "GameVersion": 0,
     "LauncherVersion": 0,
-
     "GameUpdate": {
-        "SuccessfulFinish": true,
-        "AttemptVersion": 0,
-        "DownloadedFiles": []
+        "PartialDownload": true,
+        "AttemptVersion": "67",
+        "DownloadedFiles": [
+            "TripleHorizen/Content/Paks/pakchunk7-WindowsNoEditor.pak",
+            "TripleHorizen/Content/Paks/pakchunk3002-WindowsNoEditor.pak",
+            "TripleHorizen/Content/Paks/pakchunk8-WindowsNoEditor.pak",
+            "TripleHorizen/Content/Paks/pakchunk9000-WindowsNoEditor.pak",
+            "TripleHorizen/Content/Paks/pakchunk117-WindowsNoEditor.pak",
+            "TripleHorizen/Content/Paks/pakchunk118-WindowsNoEditor.pak",
+            "TripleHorizen/Content/Paks/pakchunk119-WindowsNoEditor.pak",
+            "TripleHorizen/Content/Paks/pakchunk11-WindowsNoEditor.pak",
+            "TripleHorizen/Binaries/Win64/TripleHorizen.exe",
+            "TripleHorizen/Binaries/Win64/turbojpeg.dll",
+            "TripleHorizen/Content/Paks/pakchunk0optional-WindowsNoEditor.pak",
+            "TripleHorizen/Content/Paks/pakchunk12-WindowsNoEditor.pak"
+        ],
+        "CompletedProgress": 12.446305268640785,
+        "TotalFilesize": 3708799820
     }
 }

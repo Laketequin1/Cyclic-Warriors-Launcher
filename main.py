@@ -46,6 +46,7 @@ class Launcher:
     progress_lock = threading.Lock()
     pause_lock = threading.Lock()
     filesize_lock = threading.Lock()
+    saved_data_lock = threading.Lock()
 
     # ----- GUI -----
     @classmethod
@@ -231,9 +232,6 @@ class Launcher:
         shadow.setOffset(0, 0)
         cls.progress_bar.setGraphicsEffect(shadow)
 
-        # Increase the accuracy of the bar to 2 decimal places
-        #cls.progress_bar.setMaximum(100 * 100) 
-
         # Progress bar completion
         cls.progress = 0
         
@@ -298,6 +296,14 @@ class Launcher:
 
     @classmethod
     def pause(cls):
+        """
+        Pause the application and configure the button to resume when clicked.
+
+        This class method is used to pause the application by safely setting the 'paused' flag to True and configuring the button's style sheet, behavior, and text for the resume action. This method is thread-safe.
+
+        Returns:
+            None
+        """
         with cls.pause_lock:
             cls.paused = True
         
@@ -325,6 +331,14 @@ class Launcher:
 
     @classmethod
     def resume(cls):
+        """
+        Resume the application and configure the button to pause when clicked.
+
+        This class method is used to resume the application by safely setting the 'paused' flag to False and configuring the appearance and behavior of a button to indicate a pause action. This method is thread-safe.
+
+        Returns:
+        None
+        """
         with cls.pause_lock:
             cls.paused = False
         
@@ -352,6 +366,14 @@ class Launcher:
     
     @classmethod
     def get_paused(cls):
+        """
+        Get the current pause state of the application.
+
+        This class method is used to retrieve the current pause state of the application in a thread-safe manner by accessing the 'paused' flag within a lock.
+
+        Returns:
+            bool: True if the application is paused, False otherwise.
+        """
         with cls.pause_lock:
             return cls.paused
 
@@ -423,18 +445,34 @@ class Launcher:
             return ast.literal_eval(message)
         return None
 
-    @staticmethod
-    def get_installed_versions():
+    @classmethod
+    def get_saved_data(cls):
         """
         Retrieve installed versions of an application from a JSON file.
 
         This static method reads "saved_data.json" to retrieve the installed versions of this Launcher and Cyclic Warriors, then returns these as a Python data structure.
 
         Returns:
-            dict: A dictionary containing information about installed Game and Launcher versions.
+            dict: A dictionary containing information about versions, and update progress.
         """
-        with open("saved_data.json", "r") as file:
-            return json.load(file)
+        with cls.saved_data_lock:
+            with open("saved_data.json", "r") as file:
+                    cls.saved_data = json.load(file)
+                    return cls.saved_data
+        
+    @classmethod
+    def set_saved_data(cls):
+        """
+        Save the current state of the application's saved data to a JSON file.
+
+        This class method writes the contents of the 'saved_data' attribute to a file named "saved_data.json" in a formatted JSON structure with an indentation of 4 spaces.
+
+        Returns:
+            None
+        """
+        with cls.saved_data_lock:
+            with open("saved_data.json", "w") as file:
+                    json.dump(cls.saved_data, file, indent=4)
         
     @classmethod
     def get_version_data(cls):
@@ -459,8 +497,8 @@ class Launcher:
         cls.data = json_response
         return json_response
     
-    @staticmethod
-    def extract_version_data(parsed_json_data):
+    @classmethod
+    def extract_version_data(cls, parsed_json_data):
         """
         Extract the latest game and launcher versions from parsed JSON data.
 
@@ -474,10 +512,23 @@ class Launcher:
         """
         latest_game_version = max(parsed_json_data["PatchChanges"].keys())
         latest_launcher_version = int(parsed_json_data["Launcher"])
-        return {"GameVersion": latest_game_version, "LauncherVersion": latest_launcher_version}
+        cls.latest_version_data = {"GameVersion": latest_game_version, "LauncherVersion": latest_launcher_version}
+        return cls.latest_version_data
     
     @classmethod
     def get_total_filesize(cls, urls, total_files):
+        """
+        Calculate the total file size for a list of URLs.
+
+        This class method takes a list of file URLs, calculates the total size of the files by sending HEAD requests to each URL and summing the 'content-length' values from the response headers. It also updates a progress value based on the number of files processed.
+
+        Args:
+            urls (list): A list of URLs for the files.
+            total_files (int): The total number of files to be processed.
+
+        Returns:
+            int: The total size of the files in bytes.
+        """
         total_size = 0
         for url in urls:
             file_name = url.split("/")[-1]
@@ -492,6 +543,9 @@ class Launcher:
             
             with cls.progress_lock:
                 cls.progress += (2 / total_files)
+
+            while cls.get_paused():
+                time.sleep(0.1)
 
         return total_size
 
@@ -508,7 +562,6 @@ class Launcher:
             os.makedirs(file_location, exist_ok=True)
 
             total_size = int(response.headers.get('content-length', 0))
-            downloaded_size = 0
 
             print(f"Downloading {file_path} ({total_size} bytes)")
 
@@ -519,6 +572,15 @@ class Launcher:
                         downloaded_size = len(data)
                         with cls.progress_lock:
                             cls.progress += (98 / cls.total_filesize) * downloaded_size
+                    
+                    while cls.get_paused():
+                        time.sleep(0.1)
+            
+            with cls.saved_data_lock:
+                cls.saved_data["GameUpdate"]["CompletedProgress"] += (98 / cls.total_filesize) * total_size
+                cls.saved_data["GameUpdate"]["DownloadedFiles"].append(file_path)
+            
+            cls.set_saved_data()
 
             print(f"File downloaded as {file_path}")
         else:
@@ -526,24 +588,53 @@ class Launcher:
 
     @classmethod
     def download_core_files(cls, file_paths, total_files):
-        chunk_filesize = cls.get_total_filesize(file_paths, total_files)
+        """
+        Download core game files concurrently and manage file size calculation.
 
-        with cls.filesize_lock:
-            cls.total_filesize += chunk_filesize
-            cls.threads_finished_get_filesize += 1
-            print("DONE!")
-        
-        while True:
+        This class method is responsible for downloading core game files concurrently. It calculates the total file size of the specified files, updates shared variables to track download progress, and then initiates the file downloads.
+
+        Args:
+            file_paths (list): List of file paths to be downloaded.
+            total_files (int): Total number of files to download.
+
+        Returns:
+            None
+        """
+        with cls.saved_data_lock:
+            if cls.saved_data["GameUpdate"]["PartialDownload"] and cls.saved_data["GameUpdate"]["TotalFilesize"] > 0:
+                skip_get_total_filesize = True
+            else:
+                skip_get_total_filesize = False
+
+        if not skip_get_total_filesize:
+            chunk_filesize = cls.get_total_filesize(file_paths, total_files)
+
             with cls.filesize_lock:
-                if cls.threads_finished_get_filesize >= len(cls.threads):
-                    break
+                cls.total_filesize += chunk_filesize
+                cls.threads_finished_get_filesize += 1
+            
+            while True:
+                with cls.filesize_lock:
+                    if cls.threads_finished_get_filesize >= len(cls.threads):
+                        break
+                
+                time.sleep(0.01)
+            
+            with cls.saved_data_lock and cls.filesize_lock:
+                if cls.saved_data["GameUpdate"]["TotalFilesize"] != cls.total_filesize:
+                    cls.saved_data["GameUpdate"]["TotalFilesize"] = cls.total_filesize
+                    call_set_saved_data = True
+                else:
+                    call_set_saved_data = False
+
+            if call_set_saved_data:
+                cls.set_saved_data()
 
         for path in file_paths:
             cls.download_file(path)
 
     @classmethod
     def download_game(cls):
-        print("RAN")
         cls.button_style_sheet = f"""
             :!hover {{
                 border: 1px solid black;
@@ -566,20 +657,41 @@ class Launcher:
         cls.button_onclick = cls.pause
         cls.button_text = "Pause"
 
-        # Split the list into chunks for each thread
-        file_count = len(cls.data["CurrentFiles"])
-        chunk_size = file_count // MAX_THREADS
-        chunks = [cls.data["CurrentFiles"][i:i + chunk_size] for i in range(0, len(cls.data["CurrentFiles"]), chunk_size)]
+        with cls.saved_data_lock:
+            if cls.saved_data["GameUpdate"]["PartialDownload"] and cls.saved_data["GameUpdate"]["AttemptVersion"] == cls.latest_version_data["GameVersion"]:
+                files = [item for item in cls.data["CurrentFiles"] if item not in cls.saved_data["GameUpdate"]["DownloadedFiles"]]
 
-        cls.total_filesize = 0
+                with cls.progress_lock:
+                    cls.progress = cls.saved_data["GameUpdate"]["CompletedProgress"] + 2
+
+                cls.total_filesize = cls.saved_data["GameUpdate"]["TotalFilesize"]
+            else:
+                files = cls.data["CurrentFiles"]
+                cls.saved_data["GameUpdate"]["PartialDownload"] = True
+                cls.saved_data["GameUpdate"]["DownloadedFiles"] = []
+                cls.saved_data["GameUpdate"]["AttemptVersion"] = cls.latest_version_data["GameVersion"]
+                cls.saved_data["GameUpdate"]["TotalFilesize"] = 0
+                cls.saved_data["GameUpdate"]["CompletedProgress"] = 0
+
+                cls.total_filesize = 0
+
+        cls.set_saved_data()
+
+        # Split the list into chunks for each thread
+        file_count = len(files)
+        chunk_size = max(file_count // MAX_THREADS, 1)
+        chunks = [files[i:i + chunk_size] for i in range(0, len(files), chunk_size)]
+
         cls.threads_finished_get_filesize = 0
 
         # Create and start threads
         cls.threads = []
         for chunk in chunks:
             thread = threading.Thread(target=cls.download_core_files, args=(chunk, file_count), daemon=True)
-            thread.start()
             cls.threads.append(thread)
+        
+        for thread in cls.threads:
+            thread.start()
 
 
 # ----- Main -----
@@ -589,18 +701,18 @@ def main():
     Launcher.setup_ui()
     
     # Get version data
-    installed_versions = Launcher.get_installed_versions()
+    saved_data = Launcher.get_saved_data()
     data = Launcher.get_version_data()
     latest_versions = Launcher.extract_version_data(data)
 
     # Set required scene
-    if installed_versions["LauncherVersion"] < latest_versions["LauncherVersion"] and False:
+    if saved_data["LauncherVersion"] < latest_versions["LauncherVersion"] and False:
         Launcher.set_scene("update_launcher")
         #--> Launcher.setup_launcher_download_threads() onclick
-    elif installed_versions["GameVersion"] == 0:
+    elif saved_data["GameVersion"] == 0:
         Launcher.set_scene("download_game")
         #--> Launcher.setup_game_download_threads() onclick
-    elif installed_versions["GameVersion"] < latest_versions["GameVersion"]:
+    elif saved_data["GameVersion"] < latest_versions["GameVersion"]:
         Launcher.set_scene("update_game")
         #--> Launcher.setup_game_upload_threads() onclick
     else:

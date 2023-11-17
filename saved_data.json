@@ -4,9 +4,10 @@
     "GameUpdate": {
         "PartialDownload": true,
         "AttemptVersion": "67",
+        "AttemptType": "Download",
         "DownloadedFiles": [
-            "TripleHorizen/Content/Paks/pakchunk7-WindowsNoEditor.pak",
             "TripleHorizen/Content/Paks/pakchunk3002-WindowsNoEditor.pak",
+            "TripleHorizen/Content/Paks/pakchunk7-WindowsNoEditor.pak",
             "TripleHorizen/Content/Paks/pakchunk8-WindowsNoEditor.pak",
             "TripleHorizen/Content/Paks/pakchunk9000-WindowsNoEditor.pak",
             "TripleHorizen/Content/Paks/pakchunk117-WindowsNoEditor.pak",
@@ -16,9 +17,16 @@
             "TripleHorizen/Binaries/Win64/TripleHorizen.exe",
             "TripleHorizen/Binaries/Win64/turbojpeg.dll",
             "TripleHorizen/Content/Paks/pakchunk0optional-WindowsNoEditor.pak",
-            "TripleHorizen/Content/Paks/pakchunk12-WindowsNoEditor.pak"
+            "TripleHorizen/Content/Paks/pakchunk12-WindowsNoEditor.pak",
+            "TripleHorizen/Content/Paks/pakchunk1001-WindowsNoEditor.pak",
+            "TripleHorizen/Content/Paks/pakchunk13-WindowsNoEditor.pak",
+            "TripleHorizen/Content/Paks/pakchunk14-WindowsNoEditor.pak",
+            "TripleHorizen/Content/Paks/pakchunk15-WindowsNoEditor.pak",
+            "TripleHorizen/Content/Paks/pakchunk16-WindowsNoEditor.pak",
+            "TripleHorizen/Content/Paks/pakchunk17-WindowsNoEditor.pak",
+            "CyclicWarriors/TripleHorizen/Content/Paks/pakchunk6-WindowsNoEditor.pak"
         ],
-        "CompletedProgress": 12.446305268640785,
+        "CompletedProgress": 24.388893075927726,
         "TotalFilesize": 3708799820
     }
 }

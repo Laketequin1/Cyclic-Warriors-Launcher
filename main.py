@@ -21,11 +21,13 @@ GAME_DATA_URL = "https://reallylinux.nz/RaisSoftware/cw/game_data.json"
 ZIP_FILES_URL = "https://reallylinux.nz/RaisSoftware/cw/game/"
 CORE_FILES_URL = "https://reallylinux.nz/RaisSoftware/cw/game/corefiles/"
 
+GAME_FOLDER = "CyclicWarriors"
+
 ORIGINAL_HEIGHT = 540
 
 DISPLAY_FPS = 60
 
-MAX_THREADS = 4
+MAX_COREFILE_THREADS = 4
 
 # ----- Functions -----
 def clamp(value):
@@ -550,7 +552,9 @@ class Launcher:
         return total_size
 
     @classmethod
-    def download_file(cls, file_path):
+    def download_file(cls, file_path, folder_directory):
+        file_path = f"{folder_directory}/{file_path}"
+
         file_name = file_path.split("/")[-1]
         file_location = "/".join(file_path.split("/")[:-1])
 
@@ -631,7 +635,7 @@ class Launcher:
                 cls.set_saved_data()
 
         for path in file_paths:
-            cls.download_file(path)
+            cls.download_file(path, GAME_FOLDER)
 
     @classmethod
     def download_game(cls):
@@ -657,21 +661,24 @@ class Launcher:
         cls.button_onclick = cls.pause
         cls.button_text = "Pause"
 
+        game_update = cls.saved_data["GameUpdate"]
+
         with cls.saved_data_lock:
-            if cls.saved_data["GameUpdate"]["PartialDownload"] and cls.saved_data["GameUpdate"]["AttemptVersion"] == cls.latest_version_data["GameVersion"]:
-                files = [item for item in cls.data["CurrentFiles"] if item not in cls.saved_data["GameUpdate"]["DownloadedFiles"]]
+            if game_update["PartialDownload"] and game_update["AttemptVersion"] == cls.latest_version_data["GameVersion"] and game_update["AttemptType"] == "Download":
+                files = [item for item in cls.data["CurrentFiles"] if item not in game_update["DownloadedFiles"]]
 
                 with cls.progress_lock:
-                    cls.progress = cls.saved_data["GameUpdate"]["CompletedProgress"] + 2
+                    cls.progress = game_update["CompletedProgress"] + 2
 
-                cls.total_filesize = cls.saved_data["GameUpdate"]["TotalFilesize"]
+                cls.total_filesize = game_update["TotalFilesize"]
             else:
                 files = cls.data["CurrentFiles"]
-                cls.saved_data["GameUpdate"]["PartialDownload"] = True
-                cls.saved_data["GameUpdate"]["DownloadedFiles"] = []
-                cls.saved_data["GameUpdate"]["AttemptVersion"] = cls.latest_version_data["GameVersion"]
-                cls.saved_data["GameUpdate"]["TotalFilesize"] = 0
-                cls.saved_data["GameUpdate"]["CompletedProgress"] = 0
+                game_update["PartialDownload"] = True
+                game_update[""] = []
+                game_update["AttemptVersion"] = cls.latest_version_data["GameVersion"]
+                game_update["TotalFilesize"] = 0
+                game_update["CompletedProgress"] = 0
+                game_update["AttemptType"] = "Download"
 
                 cls.total_filesize = 0
 
@@ -679,7 +686,7 @@ class Launcher:
 
         # Split the list into chunks for each thread
         file_count = len(files)
-        chunk_size = max(file_count // MAX_THREADS, 1)
+        chunk_size = max(file_count // MAX_COREFILE_THREADS, 1)
         chunks = [files[i:i + chunk_size] for i in range(0, len(files), chunk_size)]
 
         cls.threads_finished_get_filesize = 0
@@ -692,6 +699,11 @@ class Launcher:
         
         for thread in cls.threads:
             thread.start()
+
+        if cls.data["InitialDownload"] not in game_update["DownloadedFiles"]:
+            pass
+
+        #cls.initial_download_thread = threading.Thread(target=cls.download_initial, args=(GAME_FOLDER, ), daemon=True)
 
 
 # ----- Main -----

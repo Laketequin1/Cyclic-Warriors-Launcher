@@ -11,6 +11,7 @@ import sys
 import threading
 import time
 import zipfile
+import shutil
 
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QPushButton, QProgressBar, QGraphicsDropShadowEffect
 from PyQt5.QtGui import QPixmap, QIcon, QColor, QCursor
@@ -22,6 +23,7 @@ ZIP_FILES_URL = "https://reallylinux.nz/RaisSoftware/cw/game/"
 CORE_FILES_URL = "https://reallylinux.nz/RaisSoftware/cw/game/corefiles/"
 
 GAME_FOLDER = "CyclicWarriors"
+TEMP_FOLDER = "Temp"
 
 ORIGINAL_HEIGHT = 540
 
@@ -552,7 +554,7 @@ class Launcher:
         return total_size
 
     @classmethod
-    def download_file(cls, file_path, folder_directory):
+    def download_corefile(cls, file_path, folder_directory):
         file_path = f"{folder_directory}/{file_path}"
 
         file_name = file_path.split("/")[-1]
@@ -567,7 +569,7 @@ class Launcher:
 
             total_size = int(response.headers.get('content-length', 0))
 
-            print(f"Downloading {file_path} ({total_size} bytes)")
+            print(f"Downloading corefile {file_path} ({total_size} bytes)")
 
             with open(file_path, 'wb') as file:
                 for data in response.iter_content(chunk_size=8192):
@@ -586,9 +588,36 @@ class Launcher:
             
             cls.set_saved_data()
 
+            print(f"Corefile downloaded as {file_path}")
+        else:
+            print(f"Failed to download the corefile: {file_path}. Status code: {response.status_code}")
+
+    @classmethod
+    def download_file(cls, url, file_path):
+        file_location = "/".join(file_path.split("/")[:-1])
+
+        response = requests.get(url, stream=True)
+
+        if response.status_code == 200:
+            os.makedirs(file_location, exist_ok=True)
+
+            total_size = int(response.headers.get('content-length', 0))
+
+            print(f"Downloading file {file_path} ({total_size} bytes)")
+
+            with open(file_path, 'wb') as file:
+                for data in response.iter_content(chunk_size=8192):
+                    if data:
+                        file.write(data)
+                    
+                    while cls.get_paused():
+                        time.sleep(0.1)
+
             print(f"File downloaded as {file_path}")
+            return True
         else:
             print(f"Failed to download the file: {file_path}. Status code: {response.status_code}")
+            return False
 
     @classmethod
     def download_core_files(cls, file_paths, total_files):
@@ -635,7 +664,71 @@ class Launcher:
                 cls.set_saved_data()
 
         for path in file_paths:
-            cls.download_file(path, GAME_FOLDER)
+            cls.download_corefile(path, GAME_FOLDER)
+
+    @staticmethod
+    def remove_prefix(input_str, prefix):
+        if input_str.startswith(prefix):
+            return input_str[len(prefix):]
+        return input_str
+
+    @classmethod
+    def unzip_file(cls, zip_path, extract_directory):
+        try:
+            with zipfile.ZipFile(zip_path, 'r') as zip_file:
+                for member in zip_file.namelist():
+                    filename = os.path.basename(member)
+
+                    if not filename:
+                        continue
+
+                    sub_directory = cls.remove_prefix(member.replace("/", "\\"), "CyclicWarriorsGame\\")
+                    
+                    directory = os.path.join(extract_directory, sub_directory)
+
+                    folder_directory = "\\".join(directory.split("\\")[:-1])
+
+                    print(folder_directory)
+                    os.makedirs(folder_directory, exist_ok=True)
+                    
+                    source = zip_file.open(member)
+                    target = open(directory, "wb")
+
+                    with source, target:
+                        shutil.copyfileobj(source, target)
+
+            os.remove(zip_path)
+            
+            print(f"File {zip_path} unzipped at {extract_directory}")
+            return True
+        except Exception as e:
+            print(f"Error during extraction: {e}")
+            return False
+
+    @classmethod
+    def download_zip(cls, filename, unzip_directory):
+        url = f"{ZIP_FILES_URL}/{filename}"
+        file_path = f"{TEMP_FOLDER}/{filename}"
+
+        #if not cls.download_file(url, file_path):
+        #    print(f"Failed to download file {file_path}")
+        #    return False
+        
+        if not cls.unzip_file(file_path, unzip_directory):
+            print(f"Failed to unzip file {file_path}")
+            return False
+        return True
+
+    @classmethod
+    def initial_download(cls, filename, unzip_directory):
+        print("Beginning the 'InitialDownload' download")
+        if cls.download_zip(filename, unzip_directory):
+            with cls.saved_data_lock:
+                cls.saved_data["InitialDownloadComplete"] = True
+            
+            cls.set_saved_data()
+
+            print("Successfully downloaded the 'InitialDownload'")
 
     @classmethod
     def download_game(cls):
@@ -674,7 +767,7 @@ class Launcher:
             else:
                 files = cls.data["CurrentFiles"]
                 game_update["PartialDownload"] = True
-                game_update[""] = []
+                game_update["DownloadedFiles"] = []
                 game_update["AttemptVersion"] = cls.latest_version_data["GameVersion"]
                 game_update["TotalFilesize"] = 0
                 game_update["CompletedProgress"] = 0
@@ -700,14 +793,16 @@ class Launcher:
         for thread in cls.threads:
             thread.start()
 
-        if cls.data["InitialDownload"] not in game_update["DownloadedFiles"]:
-            pass
-
-        #cls.initial_download_thread = threading.Thread(target=cls.download_initial, args=(GAME_FOLDER, ), daemon=True)
+        if not cls.saved_data["InitialDownloadComplete"]:
+            cls.initial_download_thread = threading.Thread(target=cls.initial_download, args=(cls.data["InitialDownload"], GAME_FOLDER), daemon=True)
+            cls.initial_download_thread.start()
 
 
 # ----- Main -----
 def main():
+    # Startup Commands
+    shutil.rmtree(TEMP_FOLDER)
+
     # Setup GUI
     Launcher.create_window()
     Launcher.setup_ui()

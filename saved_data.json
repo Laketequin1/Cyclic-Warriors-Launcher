@@ -2,23 +2,23 @@
     "GameVersion": 0,
     "LauncherVersion": 0,
     "GameUpdate": {
-        "PartialDownload": true,
-        "AttemptVersion": "74",
+        "PartialDownload": false,
+        "AttemptVersion": 74,
         "AttemptType": "Download",
         "DownloadedFiles": [
             "TripleHorizen/Content/Paks/pakchunk7-WindowsNoEditor.pak",
-            "TripleHorizen/Content/Paks/pakchunk8-WindowsNoEditor.pak",
             "TripleHorizen/Content/Paks/pakchunk119-WindowsNoEditor.pak",
+            "TripleHorizen/Content/Paks/pakchunk8-WindowsNoEditor.pak",
             "TripleHorizen/Content/Paks/pakchunk120-WindowsNoEditor.pak",
             "TripleHorizen/Content/Paks/pakchunk9-WindowsNoEditor.pak",
             "TripleHorizen/Content/Paks/pakchunk11-WindowsNoEditor.pak",
-            "TripleHorizen/Content/Paks/pakchunk12-WindowsNoEditor.pak",
-            "TripleHorizen/Content/Paks/pakchunk121-WindowsNoEditor.pak",
             "TripleHorizen/Binaries/Win64/TripleHorizen.exe",
             "TripleHorizen/Binaries/Win64/turbojpeg.dll",
             "TripleHorizen/Content/Paks/pakchunk0optional-WindowsNoEditor.pak",
             "TripleHorizen/Content/Movies/IntroScreenRaisSoftware.mp4",
             "TripleHorizen/Content/Movies/UE_moving_logo_v03_4k.mp4",
+            "TripleHorizen/Content/Paks/pakchunk12-WindowsNoEditor.pak",
+            "TripleHorizen/Content/Paks/pakchunk121-WindowsNoEditor.pak",
             "TripleHorizen/Content/Paks/pakchunk13-WindowsNoEditor.pak",
             "TripleHorizen/Content/Paks/pakchunk14-WindowsNoEditor.pak",
             "TripleHorizen/Content/Paks/pakchunk15-WindowsNoEditor.pak",
@@ -37,9 +37,9 @@
             "TripleHorizen/Content/Paks/pakchunk113-WindowsNoEditor.pak",
             "TripleHorizen/Content/Paks/pakchunk114-WindowsNoEditor.pak",
             "TripleHorizen/Content/Paks/pakchunk115-WindowsNoEditor.pak",
-            "TripleHorizen/Content/Paks/pakchunk1002-WindowsNoEditor.pak",
             "TripleHorizen/Content/Paks/pakchunk117-WindowsNoEditor.pak",
             "TripleHorizen/Content/Paks/pakchunk118-WindowsNoEditor.pak",
+            "TripleHorizen/Content/Paks/pakchunk1002-WindowsNoEditor.pak",
             "TripleHorizen/Content/Paks/pakchunk1003-WindowsNoEditor.pak",
             "TripleHorizen/Content/Paks/pakchunk1004-WindowsNoEditor.pak",
             "TripleHorizen/Content/Paks/pakchunk2000-WindowsNoEditor.pak",
@@ -58,5 +58,5 @@
         "CompletedProgress": 93.0,
         "TotalFilesize": 3771851695
     },
-    "InitialDownloadComplete": true
+    "InitialDownloadComplete": false
 }

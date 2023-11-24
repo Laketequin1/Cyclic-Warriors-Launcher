@@ -55,7 +55,10 @@ class Launcher:
     progress_lock = threading.Lock()
     pause_lock = threading.Lock()
     filesize_lock = threading.Lock()
+    successful_finish_lock = threading.Lock()
     saved_data_lock = threading.Lock()
+
+    download_started = False
 
     # ----- GUI -----
     @classmethod
@@ -143,14 +146,14 @@ class Launcher:
         elif scene_id == "update_game":
             pass
         elif scene_id == "start":
-            pass
+            cls.create_button("Start!", cls.start_game, 3, "#2ad452", "#1ee34c")
         else:
             raise Exception(f'The scene_id "{scene_id}" in set_scene() is not valid.')
         
         cls.current_scene = scene_id
         
     @classmethod
-    def create_button(cls, content, connect):
+    def create_button(cls, content, connect, button_size_multiplier = 1, color = "#1948d1", hover_color = "#2c59de"):
         """
         Create and style a custom button widget in the application window.
 
@@ -163,24 +166,24 @@ class Launcher:
         """
         # Create a button widget and style it
         cls.button = QPushButton(content, cls.window)
-        cls.button.setGeometry(round(cls.window.width() / 2 - round(200 * cls.size_multiplier) / 2), int(cls.window.height() * 0.42), round(200 * cls.size_multiplier), round(50 * cls.size_multiplier))
+        cls.button.setGeometry(round(cls.window.width() / 2 - round(200 * cls.size_multiplier * button_size_multiplier) / 2), int(cls.window.height() * 0.42), round(200 * cls.size_multiplier * button_size_multiplier), round(50 * cls.size_multiplier * button_size_multiplier))
         cls.button.setStyleSheet(
             f"""
             :!hover {{
                 border: 1px solid black;
-                font-size: {round(24 * cls.size_multiplier)}px;
+                font-size: {round(24 * cls.size_multiplier * button_size_multiplier)}px;
                 font-weight: bold;
                 color: white;
-                background-color: #1948d1;
+                background-color: {color};
                 border-radius: 5px;
             }}
 
             :hover {{
                 border: 1px solid black;
-                font-size: {round(24 * cls.size_multiplier)}px;
+                font-size: {round(24 * cls.size_multiplier * button_size_multiplier)}px;
                 font-weight: bold;
                 color: white;
-                background-color: #2c59de;
+                background-color: {hover_color};
                 border-radius: 5px;
             }}
             """
@@ -205,6 +208,8 @@ class Launcher:
         cls.button_cursor = cls.button.cursor()
         cls.button_onclick = connect
         cls.button_previous_onclick = connect
+
+        cls.button.show()
 
     @classmethod
     def setup_progress_bar(cls):
@@ -249,6 +254,8 @@ class Launcher:
         cls.color_paused = 360
         cls.color_shift = 0
         cls.color_shift_increment = 0.04
+
+        cls.progress_bar.show()
 
     @classmethod
     def progress_bar_marquee(cls):
@@ -414,11 +421,28 @@ class Launcher:
 
                 if cls.button_cursor != cls.button.cursor():
                     cls.button.setCursor(cls.button_cursor)
+
+            cls.check_if_finished_download_game()
             
         elif cls.current_scene == "update_game":
             pass
         elif cls.current_scene == "start":
             pass
+    
+    @classmethod
+    def set_required_scene(cls):
+        """
+        Set required scene
+        """
+        with cls.saved_data_lock:
+            if cls.saved_data["LauncherVersion"] < cls.latest_version_data["LauncherVersion"] and False:
+                Launcher.set_scene("update_launcher")
+            elif cls.saved_data["GameVersion"] == 0:
+                Launcher.set_scene("download_game")
+            elif cls.saved_data["GameVersion"] < cls.latest_version_data["GameVersion"]:
+                Launcher.set_scene("update_game")
+            else:
+                Launcher.set_scene("start")
 
     # ----- Launcher -----
     @staticmethod
@@ -462,12 +486,11 @@ class Launcher:
         This static method reads "saved_data.json" to retrieve the installed versions of this Launcher and Cyclic Warriors, then returns these as a Python data structure.
 
         Returns:
-            dict: A dictionary containing information about versions, and update progress.
+            None
         """
         with cls.saved_data_lock:
             with open("saved_data.json", "r") as file:
                     cls.saved_data = json.load(file)
-                    return cls.saved_data
         
     @classmethod
     def set_saved_data(cls):
@@ -517,12 +540,11 @@ class Launcher:
             parsed_json_data (dict): Parsed JSON data containing version information.
 
         Returns:
-            dict: A dictionary with keys "GameVersion" and "LauncherVersion" representing the latest game and launcher versions.
+            None
         """
-        latest_game_version = max(parsed_json_data["PatchChanges"].keys())
+        latest_game_version = int(max(parsed_json_data["PatchChanges"].keys()))
         latest_launcher_version = int(parsed_json_data["Launcher"])
         cls.latest_version_data = {"GameVersion": latest_game_version, "LauncherVersion": latest_launcher_version}
-        return cls.latest_version_data
     
     @classmethod
     def get_total_filesize(cls, urls, total_files):
@@ -649,11 +671,11 @@ class Launcher:
 
             with cls.filesize_lock:
                 cls.total_filesize += chunk_filesize
-                cls.threads_finished_get_filesize += 1
+                cls.download_core_files_threads_finished_get_filesize += 1
             
             while True:
                 with cls.filesize_lock:
-                    if cls.threads_finished_get_filesize >= len(cls.threads):
+                    if cls.download_core_files_threads_finished_get_filesize >= len(cls.download_core_files_threads):
                         break
                 
                 time.sleep(0.01)
@@ -670,6 +692,9 @@ class Launcher:
 
         for path in file_paths:
             cls.download_corefile(path, GAME_FOLDER)
+
+        with cls.successful_finish_lock:
+            cls.download_core_files_threads_finished_sucessfully += 1
 
     @staticmethod
     def remove_prefix(input_str, prefix):
@@ -764,9 +789,9 @@ class Launcher:
         cls.button_onclick = cls.pause
         cls.button_text = "Pause"
 
-        game_update = cls.saved_data["GameUpdate"]
-
         with cls.saved_data_lock:
+            game_update = cls.saved_data["GameUpdate"]
+
             if game_update["PartialDownload"] and game_update["AttemptVersion"] == cls.latest_version_data["GameVersion"] and game_update["AttemptType"] == "Download":
                 files = [item for item in cls.data["CurrentFiles"] if item not in game_update["DownloadedFiles"]]
 
@@ -799,21 +824,69 @@ class Launcher:
         chunk_size = max(file_count // MAX_COREFILE_THREADS, 1)
         chunks = [files[i:i + chunk_size] for i in range(0, len(files), chunk_size)]
 
-        cls.threads_finished_get_filesize = 0
+        with cls.filesize_lock:
+            cls.download_core_files_threads_finished_get_filesize = 0
+
+        with cls.successful_finish_lock:
+            cls.download_core_files_threads_finished_sucessfully = 0
 
         # Create and start threads
-        cls.threads = []
+        cls.download_core_files_threads = []
         for chunk in chunks:
             thread = threading.Thread(target=cls.download_core_files, args=(chunk, file_count), daemon=True)
-            cls.threads.append(thread)
+            cls.download_core_files_threads.append(thread)
         
-        for thread in cls.threads:
+        for thread in cls.download_core_files_threads:
             thread.start()
 
+        cls.initial_download_thread = threading.Thread(target=cls.initial_download, args=(cls.data["InitialDownload"], GAME_FOLDER), daemon=True)
         if not cls.saved_data["InitialDownloadComplete"]:
-            cls.initial_download_thread = threading.Thread(target=cls.initial_download, args=(cls.data["InitialDownload"], GAME_FOLDER), daemon=True)
             cls.initial_download_thread.start()
 
+        cls.download_started = True
+        
+    @classmethod
+    def check_if_finished_download_game(cls):
+        if not cls.download_started:
+            return
+        
+        with cls.successful_finish_lock:
+            if not (cls.download_core_files_threads_finished_sucessfully >= len(cls.download_core_files_threads) and not cls.initial_download_thread.is_alive()):
+                return
+        
+        with cls.saved_data_lock:
+            game_update = cls.saved_data["GameUpdate"]
+
+            game_update["PartialDownload"] = False
+            cls.saved_data["GameVersion"] = game_update["AttemptVersion"]
+
+        cls.set_saved_data()
+        
+        cls.button.hide()
+        cls.progress_bar.hide()
+
+        cls.set_required_scene()
+    
+    @staticmethod
+    def start_game():
+        """
+        Handles the completion of the download and game launch process.
+        """
+        process_names = [p.name() for p in psutil.process_iter()]
+
+        if "steam.exe" not in process_names:
+            return "Steam not launched."
+
+        for file in os.listdir(GAME_FOLDER):
+            if file.endswith(".exe"):
+                subprocess.Popen(os.path.join(GAME_FOLDER, file))
+                break
+        else:
+            return "Game EXE file not found. Please check your game folder, or reinstall the game."
+
+        print("Successfully Launched!")
+        sys.exit()
+        
 
 # ----- Main -----
 def main():
@@ -826,22 +899,11 @@ def main():
     Launcher.setup_ui()
     
     # Get version data
-    saved_data = Launcher.get_saved_data()
+    Launcher.get_saved_data()
     data = Launcher.get_version_data()
-    latest_versions = Launcher.extract_version_data(data)
+    Launcher.extract_version_data(data)
 
-    # Set required scene
-    if saved_data["LauncherVersion"] < latest_versions["LauncherVersion"] and False:
-        Launcher.set_scene("update_launcher")
-        #--> Launcher.setup_launcher_download_threads() onclick
-    elif saved_data["GameVersion"] == 0:
-        Launcher.set_scene("download_game")
-        #--> Launcher.setup_game_download_threads() onclick
-    elif saved_data["GameVersion"] < latest_versions["GameVersion"]:
-        Launcher.set_scene("update_game")
-        #--> Launcher.setup_game_upload_threads() onclick
-    else:
-        Launcher.set_scene("start")
+    Launcher.set_required_scene()
     
     Launcher.show()
     sys.exit(Launcher.app.exec_())

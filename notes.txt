@@ -1,0 +1,2 @@
+# NEED TO HAVE PROGRESS FOR INITIAL DOWNLOAD - and also downlaod needs to wait for this to finish
+# Download needs to change json when finished

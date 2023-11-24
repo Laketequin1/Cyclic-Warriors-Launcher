@@ -20,7 +20,8 @@ from PyQt5.QtCore import Qt, QTimer
 # ----- Constant Variables -----
 GAME_DATA_URL = "https://reallylinux.nz/RaisSoftware/cw/game_data.json"
 ZIP_FILES_URL = "https://reallylinux.nz/RaisSoftware/cw/game/"
-CORE_FILES_URL = "https://reallylinux.nz/RaisSoftware/cw/game/corefiles/"
+#CORE_FILES_URL = "https://reallylinux.nz/RaisSoftware/cw/game/corefiles/"
+CORE_FILES_URL = "http://localhost:8000/"
 
 GAME_FOLDER = "CyclicWarriors"
 TEMP_FOLDER = "Temp"
@@ -710,9 +711,9 @@ class Launcher:
         url = f"{ZIP_FILES_URL}/{filename}"
         file_path = f"{TEMP_FOLDER}/{filename}"
 
-        #if not cls.download_file(url, file_path):
-        #    print(f"Failed to download file {file_path}")
-        #    return False
+        if not cls.download_file(url, file_path):
+            print(f"Failed to download file {file_path}")
+            return False
         
         if not cls.unzip_file(file_path, unzip_directory):
             print(f"Failed to unzip file {file_path}")
@@ -763,7 +764,7 @@ class Launcher:
                 with cls.progress_lock:
                     cls.progress = game_update["CompletedProgress"] + 2
 
-                cls.total_filesize = game_update["TotalFilesize"]
+                cls.total_filesize = game_update["TotalFilesize"] + 2
             else:
                 files = cls.data["CurrentFiles"]
                 game_update["PartialDownload"] = True
@@ -772,10 +773,13 @@ class Launcher:
                 game_update["TotalFilesize"] = 0
                 game_update["CompletedProgress"] = 0
                 game_update["AttemptType"] = "Download"
-
+                
+                cls.progress = 0
                 cls.total_filesize = 0
 
         cls.set_saved_data()
+
+        print(files)
 
         # Split the list into chunks for each thread
         file_count = len(files)
@@ -801,6 +805,7 @@ class Launcher:
 # ----- Main -----
 def main():
     # Startup Commands
+    os.makedirs(TEMP_FOLDER, exist_ok=True)
     shutil.rmtree(TEMP_FOLDER)
 
     # Setup GUI

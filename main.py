@@ -20,8 +20,8 @@ from PyQt5.QtCore import Qt, QTimer
 # ----- Constant Variables -----
 GAME_DATA_URL = "https://reallylinux.nz/RaisSoftware/cw/game_data.json"
 ZIP_FILES_URL = "https://reallylinux.nz/RaisSoftware/cw/game/"
-#CORE_FILES_URL = "https://reallylinux.nz/RaisSoftware/cw/game/corefiles/"
-CORE_FILES_URL = "http://localhost:8000/"
+CORE_FILES_URL = "https://reallylinux.nz/RaisSoftware/cw/game/corefiles/"
+#CORE_FILES_URL = "http://localhost:8000/"
 
 GAME_FOLDER = "CyclicWarriors"
 TEMP_FOLDER = "Temp"

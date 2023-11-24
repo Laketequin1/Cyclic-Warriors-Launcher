@@ -32,6 +32,10 @@ DISPLAY_FPS = 60
 
 MAX_COREFILE_THREADS = 4
 
+AVAILABLE_PROGRESS_FILESIZE_CHECK = 2
+AVAILABLE_PROGRESS_INITIAL_DOWNLOAD = 5
+AVAILABLE_PROGRESS_COREFILE = 100 - AVAILABLE_PROGRESS_FILESIZE_CHECK - AVAILABLE_PROGRESS_INITIAL_DOWNLOAD
+
 # ----- Functions -----
 def clamp(value):
     """
@@ -410,7 +414,7 @@ class Launcher:
 
                 if cls.button_cursor != cls.button.cursor():
                     cls.button.setCursor(cls.button_cursor)
-
+            
         elif cls.current_scene == "update_game":
             pass
         elif cls.current_scene == "start":
@@ -547,7 +551,7 @@ class Launcher:
                 pass
             
             with cls.progress_lock:
-                cls.progress += (2 / total_files)
+                cls.progress += (AVAILABLE_PROGRESS_FILESIZE_CHECK / total_files)
 
             while cls.get_paused():
                 time.sleep(0.1)
@@ -555,8 +559,8 @@ class Launcher:
         return total_size
 
     @classmethod
-    def download_corefile(cls, file_path, folder_directory):
-        file_path = f"{folder_directory}/{file_path}"
+    def download_corefile(cls, file_source_path, folder_directory):
+        file_path = f"{folder_directory}/{file_source_path}"
 
         file_name = file_path.split("/")[-1]
         file_location = "/".join(file_path.split("/")[:-1])
@@ -578,14 +582,14 @@ class Launcher:
                         file.write(data)
                         downloaded_size = len(data)
                         with cls.progress_lock:
-                            cls.progress += (98 / cls.total_filesize) * downloaded_size
+                            cls.progress += (AVAILABLE_PROGRESS_COREFILE / cls.total_filesize) * downloaded_size
                     
                     while cls.get_paused():
                         time.sleep(0.1)
             
             with cls.saved_data_lock:
-                cls.saved_data["GameUpdate"]["CompletedProgress"] += (98 / cls.total_filesize) * total_size
-                cls.saved_data["GameUpdate"]["DownloadedFiles"].append(file_path)
+                cls.saved_data["GameUpdate"]["CompletedProgress"] += (AVAILABLE_PROGRESS_COREFILE / cls.total_filesize) * total_size
+                cls.saved_data["GameUpdate"]["DownloadedFiles"].append(file_source_path)
             
             cls.set_saved_data()
 
@@ -714,10 +718,15 @@ class Launcher:
         if not cls.download_file(url, file_path):
             print(f"Failed to download file {file_path}")
             return False
+        with cls.progress_lock:
+            cls.progress += AVAILABLE_PROGRESS_INITIAL_DOWNLOAD / 2
         
         if not cls.unzip_file(file_path, unzip_directory):
             print(f"Failed to unzip file {file_path}")
             return False
+        with cls.progress_lock:
+            cls.progress += AVAILABLE_PROGRESS_INITIAL_DOWNLOAD / 2
+
         return True
 
     @classmethod
@@ -762,9 +771,9 @@ class Launcher:
                 files = [item for item in cls.data["CurrentFiles"] if item not in game_update["DownloadedFiles"]]
 
                 with cls.progress_lock:
-                    cls.progress = game_update["CompletedProgress"] + 2
+                    cls.progress = game_update["CompletedProgress"] + AVAILABLE_PROGRESS_FILESIZE_CHECK
 
-                cls.total_filesize = game_update["TotalFilesize"] + 2
+                cls.total_filesize = game_update["TotalFilesize"]
             else:
                 files = cls.data["CurrentFiles"]
                 game_update["PartialDownload"] = True
@@ -774,12 +783,16 @@ class Launcher:
                 game_update["CompletedProgress"] = 0
                 game_update["AttemptType"] = "Download"
                 
-                cls.progress = 0
+                with cls.progress_lock:
+                    cls.progress = 0
+
                 cls.total_filesize = 0
+        
+        if cls.saved_data["InitialDownloadComplete"]:
+            with cls.progress_lock:
+                cls.progress += AVAILABLE_PROGRESS_INITIAL_DOWNLOAD
 
         cls.set_saved_data()
-
-        print(files)
 
         # Split the list into chunks for each thread
         file_count = len(files)

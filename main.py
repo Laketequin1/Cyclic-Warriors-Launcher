@@ -23,6 +23,8 @@ ZIP_FILES_URL = "https://reallylinux.nz/RaisSoftware/cw/game/"
 CORE_FILES_URL = "https://reallylinux.nz/RaisSoftware/cw/game/corefiles/"
 #CORE_FILES_URL = "http://localhost:8000/"
 
+FILE_NAME = "main.py"
+
 GAME_FOLDER = "CyclicWarriors"
 TEMP_FOLDER = "Temp"
 
@@ -59,6 +61,8 @@ class Launcher:
     saved_data_lock = threading.Lock()
 
     download_started = False
+
+    exit_flag = threading.Event()
 
     # ----- GUI -----
     @classmethod
@@ -427,7 +431,34 @@ class Launcher:
     @classmethod
     def update(cls):
         if cls.current_scene == "update_launcher":
-            pass
+            cls.progress_bar_marquee()
+
+            with cls.progress_lock:
+                if f"{cls.progress:.2f}%" != cls.progress_bar.format():
+                    cls.progress_bar.setValue(round(cls.progress))
+
+                    # Displaying the decimal value 
+                    cls.progress_bar.setFormat(f"{cls.progress:.2f}%")
+            
+            with cls.button_lock:
+                if cls.button_style_sheet != cls.progress_bar.styleSheet():
+                    cls.button.setStyleSheet(cls.button_style_sheet)
+                
+                if cls.button_previous_onclick != cls.button_onclick:
+                    cls.button_previous_onclick = cls.button_onclick
+                    cls.button.clicked.disconnect()
+                    cls.button.clicked.connect(cls.button_onclick)
+
+                if cls.button_text != cls.button.text():
+                    cls.button.setText(cls.button_text)
+
+                if cls.button_cursor != cls.button.cursor():
+                    cls.button.setCursor(cls.button_cursor)
+
+            if cls.exit_flag.is_set():
+                print("Exit flag set")
+                sys.exit()
+
         elif cls.current_scene == "download_game":
             cls.progress_bar_marquee()
 
@@ -803,13 +834,13 @@ class Launcher:
     @classmethod
     def update_launcher_downloader(cls):
         print("Beginning updating the launcher")
-        answer = input("This will erase main.py and other files. Are you sure you want to proceed? (Think about it) y/n")
+        answer = input("This will erase main.py and other files. Are you sure you want to proceed? (Think about it) y/n: ")
 
         if answer.lower() != "y":
             print("You said no to updating the launcher.")
             sys.exit()
 
-        if cls.download_zip("launcher.zip", "", 100):
+        if cls.download_zip("launcher.zip", "TEST", 100):
             with cls.saved_data_lock:
                 game_update = cls.saved_data["GameUpdate"]
 
@@ -818,11 +849,10 @@ class Launcher:
 
             cls.set_saved_data()
             
-            print("Successfully updated the launcher. Restarting by opening {FILE_NAME}.")
-
-            print("TODO")
-
-            sys.exit()
+            print(f"Successfully updated the launcher. Restarting by opening {FILE_NAME}.")
+            
+            time.sleep(0.1)
+            cls.exit_flag.set()
 
     @classmethod
     def update_launcher(cls):

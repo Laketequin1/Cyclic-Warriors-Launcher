@@ -1,8 +1,8 @@
 {
-    "GameVersion": 0,
+    "GameVersion": 3,
     "LauncherVersion": 0,
     "GameUpdate": {
-        "PartialDownload": true,
+        "PartialDownload": false,
         "AttemptVersion": 3,
         "AttemptType": "LauncherUpdate",
         "DownloadedFiles": [],

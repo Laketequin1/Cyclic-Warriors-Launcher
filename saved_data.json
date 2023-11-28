@@ -1,6 +1,6 @@
 {
-    "GameVersion": 74,
-    "LauncherVersion": 3,
+    "GameVersion": 0,
+    "LauncherVersion": 0,
     "GameUpdate": {
         "PartialDownload": false,
         "AttemptVersion": 3,
@@ -9,5 +9,5 @@
         "CompletedProgress": 0,
         "TotalFilesize": 0
     },
-    "InitialDownloadComplete": true
+    "InitialDownloadComplete": false
 }

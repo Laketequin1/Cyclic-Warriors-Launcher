@@ -772,23 +772,25 @@ class Launcher:
     def unzip_file(cls, zip_path, extract_directory, progress_allocation):
         try:
             with zipfile.ZipFile(zip_path, 'r') as zip_file:
+                home_folder_name = member[0].replace("/", "\\")
+
                 total_files = len(zip_file.namelist())
                 for member in zip_file.namelist():
                     with cls.progress_lock:
                         cls.progress += (progress_allocation / total_files)
 
                     filename = os.path.basename(member)
-
+                    
                     if not filename:
                         continue
 
-                    sub_directory = cls.remove_prefix(member.replace("/", "\\"), "CyclicWarriorsGame\\")
+                    sub_directory = cls.remove_prefix(member.replace("/", "\\"), home_folder_name)
                     
                     directory = os.path.join(extract_directory, sub_directory)
 
                     folder_directory = "\\".join(directory.split("\\")[:-1])
 
-                    print(folder_directory)
+                    print(f"Extracting to {folder_directory}")
                     os.makedirs(folder_directory, exist_ok=True)
                     
                     source = zip_file.open(member)

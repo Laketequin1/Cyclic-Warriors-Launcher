@@ -139,9 +139,10 @@ class Launcher:
         # Remove all existing buttons and progressbar
 
         if scene_id == "update_launcher":
-            pass
+            cls.create_button("Update Launcher", cls.download_game)
+            cls.setup_progress_bar()
         elif scene_id == "download_game":
-            cls.create_button("Download", cls.download_game)
+            cls.create_button("Download Game", cls.download_game)
             cls.setup_progress_bar()
         elif scene_id == "update_game":
             pass
@@ -166,7 +167,13 @@ class Launcher:
         """
         # Create a button widget and style it
         cls.button = QPushButton(content, cls.window)
-        cls.button.setGeometry(round(cls.window.width() / 2 - round(200 * cls.size_multiplier * button_size_multiplier) / 2), int(cls.window.height() * 0.42), round(200 * cls.size_multiplier * button_size_multiplier), round(50 * cls.size_multiplier * button_size_multiplier))
+
+        text_width = cls.button.fontMetrics().width(cls.button.text()) * 2.5
+        
+        button_width = round((text_width + 20) * cls.size_multiplier * button_size_multiplier)
+        button_height = round(50 * cls.size_multiplier * button_size_multiplier)
+        cls.button.setGeometry(round(cls.window.width() / 2 - button_width / 2), round(cls.window.height() * 0.42), button_width, button_height)
+
         cls.button.setStyleSheet(
             f"""
             :!hover {{
@@ -435,7 +442,7 @@ class Launcher:
         Set required scene
         """
         with cls.saved_data_lock:
-            if cls.saved_data["LauncherVersion"] < cls.latest_version_data["LauncherVersion"] and False:
+            if cls.saved_data["LauncherVersion"] < cls.latest_version_data["LauncherVersion"]:
                 Launcher.set_scene("update_launcher")
             elif cls.saved_data["GameVersion"] == 0:
                 Launcher.set_scene("download_game")

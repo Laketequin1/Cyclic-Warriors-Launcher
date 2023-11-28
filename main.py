@@ -4,7 +4,6 @@ import json
 import math
 import os
 import psutil
-import random
 import requests
 import subprocess
 import sys
@@ -805,6 +804,9 @@ class Launcher:
                     
                     if not filename:
                         continue
+
+                    if filename in EXCLUDE_FILES_FROM_UNZIP:
+                        print(f"Skipping {filename} extraction")
 
                     sub_directory = cls.remove_prefix(member.replace("/", "\\"), home_folder_name)
                     

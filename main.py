@@ -842,7 +842,13 @@ class Launcher:
             print("You said no to updating the launcher.")
             sys.exit()
 
-        if cls.download_zip("launcher.zip", "", 100):
+        full_path = os.path.abspath(__file__)
+        script_file_path = os.path.join(os.path.dirname(full_path), FILE_NAME)
+
+        if not os.path.exists(script_file_path):
+            raise Exception("File {FILE_NAME} does not exist in current path.")
+
+        if cls.download_zip("launcher.zip", full_path, 100):
             with cls.saved_data_lock:
                 game_update = cls.saved_data["GameUpdate"]
 

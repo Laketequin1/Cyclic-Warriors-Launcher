@@ -792,6 +792,9 @@ class Launcher:
 
                     print(f"Extracting to {folder_directory}")
                     os.makedirs(folder_directory, exist_ok=True)
+
+                    if os.path.exists(directory):
+                        os.remove(directory)
                     
                     source = zip_file.open(member)
                     target = open(directory, "wb")

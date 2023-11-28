@@ -23,10 +23,10 @@ ZIP_FILES_URL = "https://reallylinux.nz/RaisSoftware/cw/game/"
 #CORE_FILES_URL = "https://reallylinux.nz/RaisSoftware/cw/game/corefiles/"
 CORE_FILES_URL = "http://localhost:8000/"
 
-FILE_NAME = "main.py"
-
 GAME_FOLDER = "CyclicWarriors"
 TEMP_FOLDER = "Temp"
+
+EXCLUDE_FILES_FROM_UNZIP = ["saved_data.json"]
 
 ORIGINAL_HEIGHT = 540
 
@@ -60,9 +60,10 @@ class Launcher:
     successful_finish_lock = threading.Lock()
     saved_data_lock = threading.Lock()
 
-    download_started = False
-
     exit_flag = threading.Event()
+
+    download_started = False
+    button_content = ""
 
     # ----- GUI -----
     @classmethod
@@ -169,6 +170,8 @@ class Launcher:
         Returns:
             None
         """
+        cls.button_size_multiplier = button_size_multiplier
+
         # Create a button widget and style it
         cls.button = QPushButton(content, cls.window)
 
@@ -212,7 +215,8 @@ class Launcher:
         cls.button.setCursor(QCursor(Qt.PointingHandCursor))
 
         # Custom variable to declare when button state is paused
-        cls.resume()
+        with cls.pause_lock:
+            cls.paused = False
 
         cls.button_style_sheet = cls.button.styleSheet()
         cls.button_text = cls.button.text()
@@ -354,7 +358,13 @@ class Launcher:
             }}
             """
         cls.button_onclick = cls.resume
-        cls.button_text = "Resume"
+        cls.button_text = f"Resume {cls.button_content}"
+
+        text_width = cls.button.fontMetrics().width(f"Resume {cls.button_content}") * 1.2
+        
+        button_width = round((text_width + 20) * cls.size_multiplier * cls.button_size_multiplier)
+        button_height = round(50 * cls.size_multiplier * cls.button_size_multiplier)
+        cls.button.setGeometry(round(cls.window.width() / 2 - button_width / 2), round(cls.window.height() * 0.42), button_width, button_height)
 
     @classmethod
     def resume(cls):
@@ -389,7 +399,13 @@ class Launcher:
             }}
             """
         cls.button_onclick = cls.pause
-        cls.button_text = "Pause"
+        cls.button_text = f"Pause {cls.button_content}"
+
+        text_width = cls.button.fontMetrics().width(f"Pause {cls.button_content}") * 1.2
+        
+        button_width = round((text_width + 20) * cls.size_multiplier * cls.button_size_multiplier)
+        button_height = round(50 * cls.size_multiplier * cls.button_size_multiplier)
+        cls.button.setGeometry(round(cls.window.width() / 2 - button_width / 2), round(cls.window.height() * 0.42), button_width, button_height)
     
     @classmethod
     def get_paused(cls):
@@ -426,7 +442,13 @@ class Launcher:
             }}
             """
         cls.button_onclick = cls.pause
-        cls.button_text = "Pause"
+        cls.button_text = f"Pause {cls.button_content}"
+
+        text_width = cls.button.fontMetrics().width(f"Pause {cls.button_content}") * 1.2
+        
+        button_width = round((text_width + 20) * cls.size_multiplier * cls.button_size_multiplier)
+        button_height = round(50 * cls.size_multiplier * cls.button_size_multiplier)
+        cls.button.setGeometry(round(cls.window.width() / 2 - button_width / 2), round(cls.window.height() * 0.42), button_width, button_height)
 
     @classmethod
     def update(cls):
@@ -846,8 +868,8 @@ class Launcher:
         full_path = os.path.abspath(__file__)
         full_directory_path = os.path.dirname(full_path)
 
-        if not os.path.exists(full_path):
-            raise Exception("File {FILE_NAME} does not exist in current path.")
+        if not full_path:
+            raise Exception("Path could not be found.")
 
         if cls.download_zip("launcher.zip", full_directory_path, 100):
             with cls.saved_data_lock:
@@ -858,13 +880,25 @@ class Launcher:
 
             cls.set_saved_data()
             
-            print(f"Successfully updated the launcher. Restarting by opening {FILE_NAME}.")
+            launcher_path = os.path.abspath(__file__)
+
+            print(f"Successfully updated the launcher. Restarting by opening {os.path.abspath(launcher_path)}.")
             
             time.sleep(0.1)
+
+            _, file_extension = os.path.splitext(launcher_path)
+
+            if file_extension == ".py":
+                subprocess.Popen(['python', launcher_path])
+            else:
+                subprocess.Popen(launcher_path)
+
             cls.exit_flag.set()
 
     @classmethod
     def update_launcher(cls):
+        cls.button_content = "Launcher Update"
+
         cls.prepare_button_pause()
 
         with cls.saved_data_lock:
@@ -887,6 +921,8 @@ class Launcher:
 
     @classmethod
     def download_game(cls):
+        cls.button_content = "Game Download"
+
         cls.prepare_button_pause()
 
         with cls.saved_data_lock:

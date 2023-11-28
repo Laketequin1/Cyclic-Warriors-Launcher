@@ -840,7 +840,7 @@ class Launcher:
             print("You said no to updating the launcher.")
             sys.exit()
 
-        if cls.download_zip("launcher.zip", "TEST", 100):
+        if cls.download_zip("launcher.zip", "", 100):
             with cls.saved_data_lock:
                 game_update = cls.saved_data["GameUpdate"]
 

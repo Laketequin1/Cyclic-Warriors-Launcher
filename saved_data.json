@@ -2,7 +2,7 @@
     "GameVersion": 3,
     "LauncherVersion": 0,
     "GameUpdate": {
-        "PartialDownload": false,
+        "PartialDownload": true,
         "AttemptVersion": 3,
         "AttemptType": "LauncherUpdate",
         "DownloadedFiles": [],

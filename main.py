@@ -772,7 +772,7 @@ class Launcher:
     def unzip_file(cls, zip_path, extract_directory, progress_allocation):
         try:
             with zipfile.ZipFile(zip_path, 'r') as zip_file:
-                home_folder_name = member[0].replace("/", "\\")
+                home_folder_name = zip_file.namelist()[0].replace("/", "\\")
 
                 total_files = len(zip_file.namelist())
                 for member in zip_file.namelist():

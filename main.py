@@ -139,7 +139,7 @@ class Launcher:
         # Remove all existing buttons and progressbar
 
         if scene_id == "update_launcher":
-            cls.create_button("Update Launcher", cls.download_game)
+            cls.create_button("Update Launcher", cls.update_launcher)
             cls.setup_progress_bar()
         elif scene_id == "download_game":
             cls.create_button("Download Game", cls.download_game)
@@ -399,6 +399,30 @@ class Launcher:
         """
         with cls.pause_lock:
             return cls.paused
+        
+    @classmethod
+    def prepare_button_pause(cls):
+        cls.button_style_sheet = f"""
+            :!hover {{
+                border: 1px solid black;
+                font-size: {round(24 * cls.size_multiplier)}px;
+                font-weight: bold;
+                color: white;
+                background-color: #3e64d6;
+                border-radius: 5px;
+            }}
+
+            :hover {{
+                border: 1px solid black;
+                font-size: {round(24 * cls.size_multiplier)}px;
+                font-weight: bold;
+                color: white;
+                background-color: #5377e0;
+                border-radius: 5px;
+            }}
+            """
+        cls.button_onclick = cls.pause
+        cls.button_text = "Pause"
 
     @classmethod
     def update(cls):
@@ -627,7 +651,7 @@ class Launcher:
             print(f"Failed to download the corefile: {file_path}. Status code: {response.status_code}")
 
     @classmethod
-    def download_file(cls, url, file_path):
+    def download_file(cls, url, file_path, progress_allocation = 0):
         file_location = "/".join(file_path.split("/")[:-1])
 
         response = requests.get(url, stream=True)
@@ -643,6 +667,10 @@ class Launcher:
                 for data in response.iter_content(chunk_size=8192):
                     if data:
                         file.write(data)
+
+                        downloaded_size = len(data)
+                        with cls.progress_lock:
+                            cls.progress += (progress_allocation / total_size) * downloaded_size
                     
                     while cls.get_paused():
                         time.sleep(0.1)
@@ -710,10 +738,14 @@ class Launcher:
         return input_str
 
     @classmethod
-    def unzip_file(cls, zip_path, extract_directory):
+    def unzip_file(cls, zip_path, extract_directory, progress_allocation):
         try:
             with zipfile.ZipFile(zip_path, 'r') as zip_file:
+                total_files = len(zip_file.namelist())
                 for member in zip_file.namelist():
+                    with cls.progress_lock:
+                        cls.progress += (progress_allocation / total_files)
+
                     filename = os.path.basename(member)
 
                     if not filename:
@@ -743,58 +775,80 @@ class Launcher:
             return False
 
     @classmethod
-    def download_zip(cls, filename, unzip_directory):
+    def download_zip(cls, filename, unzip_directory, progress_allocation):
         url = f"{ZIP_FILES_URL}/{filename}"
         file_path = f"{TEMP_FOLDER}/{filename}"
 
-        if not cls.download_file(url, file_path):
+        if not cls.download_file(url, file_path, progress_allocation * 0.8):
             print(f"Failed to download file {file_path}")
             return False
-        with cls.progress_lock:
-            cls.progress += AVAILABLE_PROGRESS_INITIAL_DOWNLOAD / 2
-        
-        if not cls.unzip_file(file_path, unzip_directory):
+                
+        if not cls.unzip_file(file_path, unzip_directory, progress_allocation * 0.2):
             print(f"Failed to unzip file {file_path}")
             return False
-        with cls.progress_lock:
-            cls.progress += AVAILABLE_PROGRESS_INITIAL_DOWNLOAD / 2
 
         return True
 
     @classmethod
     def initial_download(cls, filename, unzip_directory):
         print("Beginning the 'InitialDownload' download")
-        if cls.download_zip(filename, unzip_directory):
+        if cls.download_zip(filename, unzip_directory, AVAILABLE_PROGRESS_INITIAL_DOWNLOAD):
             with cls.saved_data_lock:
                 cls.saved_data["InitialDownloadComplete"] = True
             
             cls.set_saved_data()
 
             print("Successfully downloaded the 'InitialDownload'")
+    
+    @classmethod
+    def update_launcher_downloader(cls):
+        print("Beginning updating the launcher")
+        answer = input("This will erase main.py and other files. Are you sure you want to proceed? (Think about it) y/n")
+
+        if answer.lower() != "y":
+            print("You said no to updating the launcher.")
+            sys.exit()
+
+        if cls.download_zip("launcher.zip", "", 100):
+            with cls.saved_data_lock:
+                game_update = cls.saved_data["GameUpdate"]
+
+                game_update["PartialDownload"] = False
+                cls.saved_data["GameVersion"] = game_update["AttemptVersion"]
+
+            cls.set_saved_data()
+            
+            print("Successfully updated the launcher. Restarting by opening {FILE_NAME}.")
+
+            print("TODO")
+
+            sys.exit()
+
+    @classmethod
+    def update_launcher(cls):
+        cls.prepare_button_pause()
+
+        with cls.saved_data_lock:
+            game_update = cls.saved_data["GameUpdate"]
+
+            game_update["PartialDownload"] = True
+            game_update["DownloadedFiles"] = []
+            game_update["AttemptVersion"] = cls.latest_version_data["LauncherVersion"]
+            game_update["TotalFilesize"] = 0
+            game_update["CompletedProgress"] = 0
+            game_update["AttemptType"] = "LauncherUpdate"
+            
+        cls.set_saved_data()
+        
+        with cls.progress_lock:
+            cls.progress = 0
+
+        cls.update_launcher_thread = threading.Thread(target=cls.update_launcher_downloader, daemon=True)
+        cls.update_launcher_thread.start()
 
     @classmethod
     def download_game(cls):
-        cls.button_style_sheet = f"""
-            :!hover {{
-                border: 1px solid black;
-                font-size: {round(24 * cls.size_multiplier)}px;
-                font-weight: bold;
-                color: white;
-                background-color: #3e64d6;
-                border-radius: 5px;
-            }}
-
-            :hover {{
-                border: 1px solid black;
-                font-size: {round(24 * cls.size_multiplier)}px;
-                font-weight: bold;
-                color: white;
-                background-color: #5377e0;
-                border-radius: 5px;
-            }}
-            """
-        cls.button_onclick = cls.pause
-        cls.button_text = "Pause"
+        cls.prepare_button_pause()
 
         with cls.saved_data_lock:
             game_update = cls.saved_data["GameUpdate"]

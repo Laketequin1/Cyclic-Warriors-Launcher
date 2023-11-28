@@ -791,10 +791,8 @@ class Launcher:
                     folder_directory = "\\".join(directory.split("\\")[:-1])
 
                     print(f"Extracting to {folder_directory}")
-                    os.makedirs(folder_directory, exist_ok=True)
 
-                    if os.path.exists(directory):
-                        os.remove(directory)
+                    os.makedirs(folder_directory, exist_ok=True)
                     
                     source = zip_file.open(member)
                     target = open(directory, "wb")
@@ -846,12 +844,12 @@ class Launcher:
             sys.exit()
 
         full_path = os.path.abspath(__file__)
-        script_file_path = os.path.join(os.path.dirname(full_path), FILE_NAME)
+        full_directory_path = os.path.dirname(full_path)
 
-        if not os.path.exists(script_file_path):
+        if not os.path.exists(full_path):
             raise Exception("File {FILE_NAME} does not exist in current path.")
 
-        if cls.download_zip("launcher.zip", full_path, 100):
+        if cls.download_zip("launcher.zip", full_directory_path, 100):
             with cls.saved_data_lock:
                 game_update = cls.saved_data["GameUpdate"]
 

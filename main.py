@@ -19,8 +19,8 @@ from PyQt5.QtCore import Qt, QTimer
 # ----- Constant Variables -----
 GAME_DATA_URL = "https://reallylinux.nz/RaisSoftware/cw/game_data.json"
 ZIP_FILES_URL = "https://reallylinux.nz/RaisSoftware/cw/game/"
-#CORE_FILES_URL = "https://reallylinux.nz/RaisSoftware/cw/game/corefiles/"
-CORE_FILES_URL = "http://localhost:8000/"
+CORE_FILES_URL = "https://reallylinux.nz/RaisSoftware/cw/game/corefiles/"
+#CORE_FILES_URL = "http://localhost:8000/"
 
 GAME_FOLDER = "CyclicWarriors"
 TEMP_FOLDER = "Temp"
@@ -532,7 +532,7 @@ class Launcher:
                 if cls.button_cursor != cls.button.cursor():
                     cls.button.setCursor(cls.button_cursor)
 
-            cls.check_if_finished_download_game()
+            cls.check_if_finished_update_game()
         elif cls.current_scene == "start":
             pass
     
@@ -1011,13 +1011,14 @@ class Launcher:
     def get_game_update_files(cls, current_version, patch_changes):
         necessary_files = []
         
-        for patch_version, file_changes in patch_changes:
+        for patch_version, file_changes in patch_changes.items():
+            print(patch_version, file_changes)
             patch_version = int(patch_version)
             if patch_version > current_version:
                 for file_change in file_changes:
                     if file_change not in necessary_files:
                         necessary_files.append(file_change)
-                        
+
         return necessary_files
 
     @classmethod
@@ -1081,6 +1082,28 @@ class Launcher:
         
         with cls.successful_finish_lock:
             if not (cls.download_core_files_threads_finished_sucessfully >= len(cls.download_core_files_threads) and not cls.initial_download_thread.is_alive()):
+                return
+        
+        with cls.saved_data_lock:
+            game_update = cls.saved_data["GameUpdate"]
+
+            game_update["PartialDownload"] = False
+            cls.saved_data["GameVersion"] = game_update["AttemptVersion"]
+
+        cls.set_saved_data()
+        
+        cls.button.hide()
+        cls.progress_bar.hide()
+
+        cls.set_required_scene()
+
+    @classmethod
+    def check_if_finished_update_game(cls):
+        if not cls.download_started:
+            return
+        
+        with cls.successful_finish_lock:
+            if not (cls.download_core_files_threads_finished_sucessfully >= len(cls.download_core_files_threads)):
                 return
         
         with cls.saved_data_lock:

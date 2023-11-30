@@ -1,13 +1,14 @@
 {
-    "GameVersion": 73,
-    "LauncherVersion": 3,
+    "GameVersion": 0,
+    "LauncherVersion": 0,
     "GameUpdate": {
-        "PartialDownload": true,
-        "AttemptVersion": 74,
-        "AttemptType": "GameUpdate",
-        "DownloadedFiles": [],
+        "PartialDownload": false,
+        "AttemptVersion": 0,
+        "AttemptType": "",
+        "DownloadedFiles": [
+        ],
         "CompletedProgress": 0,
         "TotalFilesize": 0
     },
-    "InitialDownloadComplete": true
+    "InitialDownloadComplete": false
 }

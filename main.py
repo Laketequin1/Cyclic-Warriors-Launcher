@@ -19,8 +19,8 @@ from PyQt5.QtCore import Qt, QTimer
 # ----- Constant Variables -----
 GAME_DATA_URL = "https://reallylinux.nz/RaisSoftware/cw/game_data.json"
 ZIP_FILES_URL = "https://reallylinux.nz/RaisSoftware/cw/game/"
-CORE_FILES_URL = "https://reallylinux.nz/RaisSoftware/cw/game/corefiles/"
-#CORE_FILES_URL = "http://localhost:8000/"
+#CORE_FILES_URL = "https://reallylinux.nz/RaisSoftware/cw/game/corefiles/"
+CORE_FILES_URL = "http://localhost:8000/"
 
 GAME_FOLDER = "CyclicWarriors"
 TEMP_FOLDER = "Temp"
@@ -149,7 +149,8 @@ class Launcher:
             cls.create_button("Download Game", cls.download_game)
             cls.setup_progress_bar()
         elif scene_id == "update_game":
-            pass
+            cls.create_button("Update Game", cls.update_game)
+            cls.setup_progress_bar()
         elif scene_id == "start":
             cls.create_button("Start!", cls.start_game, 3, "#2ad452", "#1ee34c")
         else:
@@ -506,9 +507,32 @@ class Launcher:
                     cls.button.setCursor(cls.button_cursor)
 
             cls.check_if_finished_download_game()
-            
         elif cls.current_scene == "update_game":
-            pass
+            cls.progress_bar_marquee()
+
+            with cls.progress_lock:
+                if f"{cls.progress:.2f}%" != cls.progress_bar.format():
+                    cls.progress_bar.setValue(round(cls.progress))
+
+                    # Displaying the decimal value 
+                    cls.progress_bar.setFormat(f"{cls.progress:.2f}%")
+            
+            with cls.button_lock:
+                if cls.button_style_sheet != cls.progress_bar.styleSheet():
+                    cls.button.setStyleSheet(cls.button_style_sheet)
+                
+                if cls.button_previous_onclick != cls.button_onclick:
+                    cls.button_previous_onclick = cls.button_onclick
+                    cls.button.clicked.disconnect()
+                    cls.button.clicked.connect(cls.button_onclick)
+
+                if cls.button_text != cls.button.text():
+                    cls.button.setText(cls.button_text)
+
+                if cls.button_cursor != cls.button.cursor():
+                    cls.button.setCursor(cls.button_cursor)
+
+            cls.check_if_finished_download_game()
         elif cls.current_scene == "start":
             pass
     
@@ -930,7 +954,7 @@ class Launcher:
         with cls.saved_data_lock:
             game_update = cls.saved_data["GameUpdate"]
 
-            if game_update["PartialDownload"] and game_update["AttemptVersion"] == cls.latest_version_data["GameVersion"] and game_update["AttemptType"] == "Download":
+            if game_update["PartialDownload"] and game_update["AttemptVersion"] == cls.latest_version_data["GameVersion"] and game_update["AttemptType"] == "GameDownload":
                 files = [item for item in cls.data["CurrentFiles"] if item not in game_update["DownloadedFiles"]]
 
                 with cls.progress_lock:
@@ -944,7 +968,7 @@ class Launcher:
                 game_update["AttemptVersion"] = cls.latest_version_data["GameVersion"]
                 game_update["TotalFilesize"] = 0
                 game_update["CompletedProgress"] = 0
-                game_update["AttemptType"] = "Download"
+                game_update["AttemptType"] = "GameDownload"
                 
                 with cls.progress_lock:
                     cls.progress = 0
@@ -980,6 +1004,69 @@ class Launcher:
         cls.initial_download_thread = threading.Thread(target=cls.initial_download, args=(cls.data["InitialDownload"], GAME_FOLDER), daemon=True)
         if not cls.saved_data["InitialDownloadComplete"]:
             cls.initial_download_thread.start()
+
+        cls.download_started = True
+
+    @classmethod
+    def get_game_update_files(cls, current_version, patch_changes):
+        necessary_files = []
+
+        for patch_version, file_changes in patch_changes:
+            if patch_version > current_version:
+                if file_changes not in necessary_files:
+                    necessary_files.append(file_changes)
+
+    @classmethod
+    def update_game(cls):
+        cls.button_content = "Game Update"
+
+        cls.prepare_button_pause()
+
+        with cls.saved_data_lock:
+            game_update = cls.saved_data["GameUpdate"]
+
+            if game_update["PartialDownload"] and game_update["AttemptVersion"] == cls.latest_version_data["GameVersion"] and game_update["AttemptType"] == "GameUpdate":
+                files = [item for item in cls.get_game_update_files(cls.saved_data["GameVersion"], cls.data["PatchChanges"]) if item not in game_update["DownloadedFiles"]]
+
+                with cls.progress_lock:
+                    cls.progress = game_update["CompletedProgress"] + AVAILABLE_PROGRESS_FILESIZE_CHECK
+
+                cls.total_filesize = game_update["TotalFilesize"]
+            else:
+                files = cls.get_game_update_files(cls.saved_data["GameVersion"], cls.data["PatchChanges"])
+                game_update["PartialDownload"] = True
+                game_update["DownloadedFiles"] = []
+                game_update["AttemptVersion"] = cls.latest_version_data["GameVersion"]
+                game_update["TotalFilesize"] = 0
+                game_update["CompletedProgress"] = 0
+                game_update["AttemptType"] = "GameUpdate"
+                
+                with cls.progress_lock:
+                    cls.progress = 0
+
+                cls.total_filesize = 0
+
+        cls.set_saved_data()
+
+        # Split the list into chunks for each thread
+        file_count = len(files)
+        chunk_size = max(file_count // MAX_COREFILE_THREADS, 1)
+        chunks = [files[i:i + chunk_size] for i in range(0, len(files), chunk_size)]
+
+        with cls.filesize_lock:
+            cls.download_core_files_threads_finished_get_filesize = 0
+
+        with cls.successful_finish_lock:
+            cls.download_core_files_threads_finished_sucessfully = 0
+
+        # Create and start threads
+        cls.download_core_files_threads = []
+        for chunk in chunks:
+            thread = threading.Thread(target=cls.download_core_files, args=(chunk, file_count), daemon=True)
+            cls.download_core_files_threads.append(thread)
+        
+        for thread in cls.download_core_files_threads:
+            thread.start()
 
         cls.download_started = True
         

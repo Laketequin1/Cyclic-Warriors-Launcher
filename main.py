@@ -35,7 +35,7 @@ MAX_COREFILE_THREADS = 4
 
 AVAILABLE_PROGRESS_FILESIZE_CHECK = 2
 AVAILABLE_PROGRESS_INITIAL_DOWNLOAD = 5
-AVAILABLE_PROGRESS_COREFILE = 100 - AVAILABLE_PROGRESS_FILESIZE_CHECK - AVAILABLE_PROGRESS_INITIAL_DOWNLOAD
+AVAILABLE_PROGRESS_COREFILE = 100
 
 # ----- Functions -----
 def clamp(value):
@@ -688,7 +688,7 @@ class Launcher:
         return total_size
 
     @classmethod
-    def download_corefile(cls, file_source_path, folder_directory):
+    def download_corefile(cls, file_source_path, folder_directory, available_progress):
         file_path = f"{folder_directory}/{file_source_path}"
 
         file_name = file_path.split("/")[-1]
@@ -711,13 +711,13 @@ class Launcher:
                         file.write(data)
                         downloaded_size = len(data)
                         with cls.progress_lock:
-                            cls.progress += (AVAILABLE_PROGRESS_COREFILE / cls.total_filesize) * downloaded_size
+                            cls.progress += (available_progress / cls.total_filesize) * downloaded_size
                     
                     while cls.get_paused():
                         time.sleep(0.1)
             
             with cls.saved_data_lock:
-                cls.saved_data["GameUpdate"]["CompletedProgress"] += (AVAILABLE_PROGRESS_COREFILE / cls.total_filesize) * total_size
+                cls.saved_data["GameUpdate"]["CompletedProgress"] += (available_progress / cls.total_filesize) * total_size
                 cls.saved_data["GameUpdate"]["DownloadedFiles"].append(file_source_path)
             
             cls.set_saved_data()
@@ -758,7 +758,7 @@ class Launcher:
             return False
 
     @classmethod
-    def download_core_files(cls, file_paths, total_files):
+    def download_core_files(cls, file_paths, total_files, available_progress):
         """
         Download core game files concurrently and manage file size calculation.
 
@@ -802,7 +802,7 @@ class Launcher:
                 cls.set_saved_data()
 
         for path in file_paths:
-            cls.download_corefile(path, GAME_FOLDER)
+            cls.download_corefile(path, GAME_FOLDER, available_progress)
 
         with cls.successful_finish_lock:
             cls.download_core_files_threads_finished_sucessfully += 1
@@ -995,7 +995,7 @@ class Launcher:
         # Create and start threads
         cls.download_core_files_threads = []
         for chunk in chunks:
-            thread = threading.Thread(target=cls.download_core_files, args=(chunk, file_count), daemon=True)
+            thread = threading.Thread(target=cls.download_core_files, args=(chunk, file_count, AVAILABLE_PROGRESS_COREFILE - AVAILABLE_PROGRESS_INITIAL_DOWNLOAD - AVAILABLE_PROGRESS_FILESIZE_CHECK), daemon=True)
             cls.download_core_files_threads.append(thread)
         
         for thread in cls.download_core_files_threads:
@@ -1062,7 +1062,7 @@ class Launcher:
         # Create and start threads
         cls.download_core_files_threads = []
         for chunk in chunks:
-            thread = threading.Thread(target=cls.download_core_files, args=(chunk, file_count), daemon=True)
+            thread = threading.Thread(target=cls.download_core_files, args=(chunk, file_count, AVAILABLE_PROGRESS_COREFILE - AVAILABLE_PROGRESS_FILESIZE_CHECK), daemon=True)
             cls.download_core_files_threads.append(thread)
         
         for thread in cls.download_core_files_threads:

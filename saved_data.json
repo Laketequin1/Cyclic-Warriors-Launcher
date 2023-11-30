@@ -5,7 +5,9 @@
         "PartialDownload": false,
         "AttemptVersion": 0,
         "AttemptType": "",
-        "DownloadedFiles": [],
+        "DownloadedFiles": [
+
+        ],
         "CompletedProgress": 0,
         "TotalFilesize": 0
     },

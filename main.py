@@ -886,13 +886,13 @@ class Launcher:
     def update_launcher_downloader(cls):
         print("Beginning updating the launcher")
 
-        full_path = os.path.abspath(__file__)
-        full_directory_path = os.path.dirname(full_path)
+        launcher_path = os.path.abspath(sys.argv[0])
+        launcher_directory_path = os.path.dirname(launcher_path)
 
-        if not full_path:
+        if not launcher_path:
             raise Exception("Path could not be found.")
 
-        if cls.download_zip("launcher.zip", full_directory_path, 100):
+        if cls.download_zip("launcher.zip", launcher_directory_path, 100):
             with cls.saved_data_lock:
                 game_update = cls.saved_data["GameUpdate"]
 
@@ -900,10 +900,8 @@ class Launcher:
                 cls.saved_data["LauncherVersion"] = game_update["AttemptVersion"]
 
             cls.set_saved_data()
-            
-            launcher_path = os.path.abspath(__file__)
 
-            print(f"Successfully updated the launcher. Restarting by opening {os.path.abspath(launcher_path)}.")
+            print(f"Successfully updated the launcher. Restarting by opening {launcher_path}.")
             
             time.sleep(0.1)
 
@@ -1136,8 +1134,11 @@ class Launcher:
         
 
 # ----- Main -----
-def main():
+def main():    
     # Startup Commands
+    launcher_path = os.path.abspath(sys.argv[0])
+    launcher_directory_path = os.path.dirname(launcher_path)
+    os.chdir(launcher_directory_path)
     os.makedirs(TEMP_FOLDER, exist_ok=True)
     shutil.rmtree(TEMP_FOLDER)
 

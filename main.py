@@ -1010,11 +1010,15 @@ class Launcher:
     @classmethod
     def get_game_update_files(cls, current_version, patch_changes):
         necessary_files = []
-
+        
         for patch_version, file_changes in patch_changes:
+            patch_version = int(patch_version)
             if patch_version > current_version:
-                if file_changes not in necessary_files:
-                    necessary_files.append(file_changes)
+                for file_change in file_changes:
+                    if file_change not in necessary_files:
+                        necessary_files.append(file_change)
+                        
+        return necessary_files
 
     @classmethod
     def update_game(cls):

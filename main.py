@@ -885,11 +885,6 @@ class Launcher:
     @classmethod
     def update_launcher_downloader(cls):
         print("Beginning updating the launcher")
-        answer = input("This will erase main.py and other files. Are you sure you want to proceed? (Think about it) y/n: ")
-
-        if answer.lower() != "y":
-            print("You said no to updating the launcher.")
-            sys.exit()
 
         full_path = os.path.abspath(__file__)
         full_directory_path = os.path.dirname(full_path)
